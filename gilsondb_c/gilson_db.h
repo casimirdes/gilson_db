@@ -10,7 +10,7 @@
 
 /*
 
-Versão: 0.41 26/05/25
+Versão: 0.5 31/05/25
 
 100% baseado no "neide_db" e "gilson"
 
@@ -25,8 +25,8 @@ gilson_db = banco de dados com giison
 - header só modifica uma vez quando é criado a tabela
 - é possível excluir/deletar um id/linha porem mantem o id original mas inativa a linha
 - é possivel ativar a linha novamente e entao edita-la para reutilizar
-- os pacotes de gilson sao salvos no modo 'GSON_MODO_ZIP' que é o mais compacto
-- OFF_PACK_GILSON_DB=16  // status_id + check_ids + tamanho do pacote + crc (as 4 do tipo uint32_t)
+- os pacotes de gilson sao salvos no modo 'GSON_MODO_FULL'
+- OFF_PACK_GILSON_DB=8  // status_id + check_ids (tipo uint32_t)
 
 
 - inicialmente sem suporte a mudança/alteração de fromato de tabela ja criada
@@ -36,7 +36,9 @@ gilson_db = banco de dados com giison
  */
 
 
-#define OFF_PACK_GILSON_DB	16  // status_id + check_ids + tamanho do pacote + crc (as 4 do tipo uint32_t)
+//#define OFF_PACK_GILSON_DB	16  // status_id + check_ids + tamanho do pacote + crc (as 4 do tipo uint32_t)
+#define OFF_PACK_GILSON_DB	9  // status_id + check_ids + idb (2 u32 + 1 u8)  LEMBRANDO que tamanho do pacote + crc ja estão no gilson 'GSON_MODO_FULL'
+// o header do 'GSON_MODO_FULL' é: [0]=modo, [1:4]=crc, [5:6]=tamanho, [7]=tot_chaves (OFFSET_MODO_FULL) 'tamanho' soma pacote completo porem o crc é começa [5::] de 'tamanho'-5
 
 
 // controle interno dos contadores do banco (cada um refere a um uint32_t do config banco), nao confundir com os 4 bytes init de cada item que indicam status do 'id'
@@ -138,6 +140,7 @@ enum e_erros_GILSONDB
 	erGILSONDB_LOT,  // banco lotado/cheio
 	erGILSONDB_OCUPADO,
 	erGILSONDB_NOMULTI,
+	erGILSONDB_MODO,
 	erGILSONDB_0,
 	erGILSONDB_1,
 	erGILSONDB_2,
@@ -193,7 +196,6 @@ enum e_erros_GILSONDB
 
 
 
-
 //============================================================================================
 //============================================================================================
 
@@ -213,23 +215,24 @@ int32_t gilsondb_read(const uint32_t end_db, const uint32_t id, uint8_t *data);
 
 
 int32_t gilsondb_check(const uint32_t end_db, const uint32_t max_packs, const uint32_t offset_pack, const uint32_t codedb);
-int32_t gilsondb_get_valids(const uint32_t end_db, uint32_t *cont_ids, uint16_t *valids);
 int32_t gilsondb_get_configs(const uint32_t end_db, const uint8_t tipo, uint32_t *config);
 int32_t gilsondb_get_info(const uint32_t end_db, char *sms, const char *nome);
 
+int32_t gilsondb_get_valids(const uint32_t end_db, uint32_t *cont_ids, uint16_t *valids);
 
 int gilsondb_info_deep(const uint32_t end_db, const char *nome_banco);
 
-
 int32_t gilsondb_encode_init(uint8_t *pack, const uint16_t size_max_pack);
-int32_t gilsondb_encode_end(uint32_t *crc);
+int32_t gilsondb_encode_end(void);
 int32_t gilsondb_encode_mapfix(const uint16_t *map, const uint8_t *valor);
 int32_t gilsondb_encode_mapdin(const uint16_t *map, ...);
 
 int32_t gilsondb_decode_init(const uint8_t *pack);
-int32_t gilsondb_decode_end(uint32_t *crc);
-int32_t gilsondb_decode_mapfix(const uint16_t *map, uint8_t *valor);
-int32_t gilsondb_decode_mapdin(const uint16_t *map, ...);
+int32_t gilsondb_decode_end(void);
+int32_t gilsondb_decode_map(const uint16_t *map, uint8_t *valor);
+//int32_t gilsondb_decode_mapfix(const uint16_t *map, uint8_t *valor);
+//int32_t gilsondb_decode_mapdin(const uint16_t *map, ...);
+
 
 // para multi bancos no mesmo endereço via 'map'
 int32_t gilsondb_create_multi_init(const uint32_t end_db, const uint32_t max_packs, const uint32_t codedb, const uint32_t max_bytes, const uint8_t n_bancos, const uint8_t *settings);
