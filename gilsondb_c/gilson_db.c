@@ -2866,7 +2866,7 @@ int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del)
 				{
 					// 'endereco' ainda é um valor partindo de zero, nao está somado o offset de 'end_db' logo podemos
 					// medir o alcance em bytes que vamos querer gravar ou ler...
-					erro = erGILSONDB_8;
+					erro = erGILSONDB_46;
 					goto deu_erro;
 				}
 			}
@@ -2909,6 +2909,191 @@ int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del)
 		printf_DEBUG("DEBUG gilsondb_del::: erro:%i, end_db:%lu(%lu), id:%lu, status_id:%lu, endereco:%lu\n", erro, end_db, (end_db/4096), id, h.status_id, endereco);
 #else  // PC
 		printf("DEBUG gilsondb_del::: erro:%i, end_db:%u(%u), id:%u, status_id:%u, endereco:%u\n", erro, end_db, (end_db/4096), id, h.status_id, endereco);
+#endif  // #if (TIPO_DEVICE==1)
+	}
+#endif  // #if (USO_DEBUG_LIB==1)
+
+
+	update_erro_global(erro);
+	return erro;
+}
+
+
+
+
+int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_t chave, uint8_t *data, uint8_t *valor)
+{
+	uint32_t endereco, crc2=0, id_cont=0, i;
+	int32_t erro=erGILSONDB_OK, pos_bytes = 0;
+	uint8_t valid;
+	uint8_t b[HEADER_GILSON_DB_DATA];
+	header_db s_gdb;
+	header_data h={0};
+
+	erro = _gilsondb_check_db_init(end_db, &s_gdb);
+
+	if(erro==erGILSONDB_OK)
+	{
+		if(id>=s_gdb.max_packs)
+		{
+			erro = erGILSONDB_47;
+			goto deu_erro;
+		}
+
+		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		{
+			// s_gdb.multi_map = nao importa o tipo
+
+			// vamos fazer uma busca linear no banco até chegar no id alvo
+			endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
+			endereco += end_db;
+			for(i=0; i<s_gdb.max_packs; i++)
+			{
+				// análise do configs...
+				erro = mem_read_buff(endereco, HEADER_GILSON_DB_DATA, b);
+				_decode_header_data(b, &h);
+
+				if(h.check_ids == s_gdb.check_ids)
+				{
+					endereco += OFF_PACK_GILSON_DB;
+
+					if(h.len_pacote==0 || h.len_pacote>(s_gdb.size_max_pack-OFF_PACK_GILSON_DB))
+					{
+						erro=erGILSONDB_48;
+						goto deu_erro;
+					}
+
+					valid = (uint8_t)h.status_id&0xff;
+					id_cont = (h.status_id>>8)&0xffffff;
+
+					if(valid==1)
+					{
+						if(id == i)
+						{
+							// assume que o buffer 'data' vai conseguir alocar os dados resgatados!!!!
+							erro = mem_read_buff(endereco, h.len_pacote, data);
+
+							crc2 = gilsondb_crc(0xffffffff, &data[e_init_check_dat], (h.len_pacote-e_init_check_dat));
+
+							if(h.crc == crc2)
+							{
+								if(chave >= h.tot_chaves)
+								{
+									erro=erGILSONDB_49;
+									goto deu_erro;
+								}
+								erro = gilsondb_decode_init(data);
+								erro = gilson_decode_data_full(chave, valor);
+								pos_bytes = gilsondb_decode_end();
+
+								if(pos_bytes<0 || erro!=0)
+								{
+									erro=erGILSONDB_50;
+								}
+
+								// tudo certo e achamos nosso id a alocamos a data em 'data'
+								break;
+							}
+							else
+							{
+								erro=erGILSONDB_51;
+								goto deu_erro;
+							}
+						}
+
+						endereco += h.len_pacote;  // ja tem a soma de 'OFF_PACK_GILSON_DB' feita anteriormente
+						// resulta no endereço do proximo id
+					}
+					else
+					{
+						erro=erGILSONDB_52;
+						goto deu_erro;
+					}
+				}
+				else
+				{
+					erro=erGILSONDB_53;
+					goto deu_erro;
+				}
+			}
+		}
+		else
+		{
+			endereco = id * s_gdb.size_max_pack + s_gdb.size_header;
+
+			if(endereco > s_gdb.size_max_tot)  // if(endereco > ((s_gdb.max_packs * s_gdb.size_max_pack) + s_gdb.size_header))
+			{
+				// 'endereco' ainda é um valor partindo de zero, nao está somado o offset de 'end_db' logo podemos
+				// medir o alcance em bytes que vamos querer gravar ou ler...
+				erro = erGILSONDB_54;
+				goto deu_erro;
+			}
+
+			// se desloca até offset do endereço do banco
+			endereco += end_db;
+
+			// análise do configs...
+			erro = mem_read_buff(endereco, HEADER_GILSON_DB_DATA, b);
+			_decode_header_data(b, &h);
+
+			if(h.check_ids == s_gdb.check_ids)
+			{
+				endereco += OFF_PACK_GILSON_DB;
+
+				if(h.len_pacote==0 || h.len_pacote>(s_gdb.size_max_pack-OFF_PACK_GILSON_DB))
+				{
+					erro=erGILSONDB_55;
+					goto deu_erro;
+				}
+
+				// assume que o buffer 'data' vai conseguir alocar os dados resgatados!!!!
+				erro = mem_read_buff(endereco, h.len_pacote, data);
+
+				crc2 = gilsondb_crc(0xffffffff, &data[e_init_check_dat], (h.len_pacote-e_init_check_dat));
+
+				if(h.crc == crc2)
+				{
+					valid = (uint8_t)h.status_id&0xff;
+					id_cont = (h.status_id>>8)&0xffffff;
+					// validar o 'valid'?????
+
+					if(chave >= h.tot_chaves)
+					{
+						erro=erGILSONDB_56;
+						goto deu_erro;
+					}
+
+					erro = gilsondb_decode_init(data);
+					erro = gilson_decode_data_full(chave, valor);
+					pos_bytes = gilsondb_decode_end();
+
+					if(pos_bytes<0 || erro!=0)
+					{
+						erro=erGILSONDB_57;
+					}
+				}
+				else
+				{
+					erro=erGILSONDB_58;
+				}
+			}
+			else
+			{
+				erro=erGILSONDB_59;
+			}
+		}
+	}
+
+
+	deu_erro:
+
+#if (USO_DEBUG_LIB==1)
+	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+	{
+#if (TIPO_DEVICE==0)
+		printf_DEBUG("DEBUG gilsondb_read::: erro:%i, end_db:%lu(%lu), id:%lu, valid:%lu, id_cont:%lu, len_pacote:%u, crc:%lu|%lu, endereco:%lu\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco);
+#else  // PC
+		printf("DEBUG gilsondb_read::: erro:%i, end_db:%u(%u), id:%u, valid:%u, id_cont:%u, len_pacote:%u, crc:%u|%u, endereco:%u\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco);
 #endif  // #if (TIPO_DEVICE==1)
 	}
 #endif  // #if (USO_DEBUG_LIB==1)

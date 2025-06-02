@@ -10,7 +10,7 @@
 
 /*
 
-Versão: 0.5 31/05/25
+Versão: 0.51 01/06/25
 
 100% baseado no "neide_db" e "gilson"
 
@@ -192,6 +192,15 @@ enum e_erros_GILSONDB
 	erGILSONDB_48,
 	erGILSONDB_49,
 	erGILSONDB_50,
+	erGILSONDB_51,
+	erGILSONDB_52,
+	erGILSONDB_53,
+	erGILSONDB_54,
+	erGILSONDB_55,
+	erGILSONDB_56,
+	erGILSONDB_57,
+	erGILSONDB_58,
+	erGILSONDB_59,
 };
 
 
@@ -250,5 +259,6 @@ int32_t gilsondb_get_multi_ibanco_valids(const uint32_t end_db, uint32_t *cont_i
 
 int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del);
 
+int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_t chave, uint8_t *data, uint8_t *valor);
 
 #endif /* SRC_GILSON_DB_GILSON_DB_H_ */
