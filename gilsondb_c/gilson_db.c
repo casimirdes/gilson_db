@@ -18,7 +18,7 @@
 
 
 #define TIPO_DEVICE			1  // 0=microcontrolador, 1=PC
-#define USO_DEBUG_LIB		1  // 0=desativado, 1=ativado
+#define USO_DEBUG_LIB		0  // 0=desativado, 1=ativado
 #define PRINT_DEBUG			0  // 1 = printa toda vida o debug
 
 
@@ -28,6 +28,7 @@
 // se tem que add uma lib específica...
 
 #if (TIPO_DEVICE==0)
+
 
 ...
 
@@ -1963,6 +1964,11 @@ int32_t gilsondb_encode_end(void)
 	return gilson_encode_end();
 }
 
+int32_t gilsondb_encode_end_crc(uint32_t *crc)
+{
+	return gilson_encode_end_crc(crc);
+}
+
 
 int32_t gilsondb_encode_mapfix(const uint16_t *map, const uint8_t *valor)
 {
@@ -2035,6 +2041,17 @@ int32_t gilsondb_encode_mapdin(const uint16_t *map, ...)
 }
 
 
+int32_t gilsondb_encode_mapnull(const uint16_t *map)
+{
+    uint8_t dummy=0;
+
+    // mesma lógica de 'gilson_encode_data_null()'
+    return gilson_encode_data(map[0], 255, 255, &dummy, 0, 0, 0);
+}
+
+
+
+
 
 int32_t gilsondb_decode_init(const uint8_t *pack)
 {
@@ -2059,6 +2076,10 @@ int32_t gilsondb_decode_end(void)
 	return gilson_decode_end();
 }
 
+int32_t gilsondb_decode_end_crc(uint32_t *crc)
+{
+	return gilson_decode_end_crc(crc);
+}
 
 int32_t gilsondb_decode_map(const uint16_t *map, uint8_t *valor)
 {

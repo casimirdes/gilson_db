@@ -10,7 +10,7 @@
 
 /*
 
-Versão: 0.51 01/06/25
+Versão: 0.52 08/06/25
 
 100% baseado no "neide_db" e "gilson"
 
@@ -25,11 +25,11 @@ gilson_db = banco de dados com giison
 - header só modifica uma vez quando é criado a tabela
 - é possível excluir/deletar um id/linha porem mantem o id original mas inativa a linha
 - é possivel ativar a linha novamente e entao edita-la para reutilizar
-- os pacotes de gilson sao salvos no modo 'GSON_MODO_FULL'
-- OFF_PACK_GILSON_DB=8  // status_id + check_ids (tipo uint32_t)
+- os pacotes de gilson são salvos no modo 'GSON_MODO_FULL'
+- OFF_PACK_GILSON_DB=9  // status_id + check_ids (tipo uint32_t) + i_banco( 1byte para multi bancos)
 
 
-- inicialmente sem suporte a mudança/alteração de fromato de tabela ja criada
+- inicialmente sem suporte a mudança/alteração de formato de tabela ja criada
 - cada 'nome de tabela' é um endereço de onde vai ser o ponto inicial na memória logo sempre vai gravar no mesma posição
 - não tem tratamento de nivelamento de desgaste de setores, isto é, não escreve dinamicamente em multi setores
 
@@ -233,11 +233,14 @@ int gilsondb_info_deep(const uint32_t end_db, const char *nome_banco);
 
 int32_t gilsondb_encode_init(uint8_t *pack, const uint16_t size_max_pack);
 int32_t gilsondb_encode_end(void);
+int32_t gilsondb_encode_end_crc(uint32_t *crc);
 int32_t gilsondb_encode_mapfix(const uint16_t *map, const uint8_t *valor);
 int32_t gilsondb_encode_mapdin(const uint16_t *map, ...);
+int32_t gilsondb_encode_mapnull(const uint16_t *map);
 
 int32_t gilsondb_decode_init(const uint8_t *pack);
 int32_t gilsondb_decode_end(void);
+int32_t gilsondb_decode_end_crc(uint32_t *crc);
 int32_t gilsondb_decode_map(const uint16_t *map, uint8_t *valor);
 //int32_t gilsondb_decode_mapfix(const uint16_t *map, uint8_t *valor);
 //int32_t gilsondb_decode_mapdin(const uint16_t *map, ...);
