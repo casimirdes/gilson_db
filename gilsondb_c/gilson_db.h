@@ -10,7 +10,7 @@
 
 /*
 
-Versão: 0.52 08/06/25
+Versão: 0.53 10/06/25
 
 100% baseado no "neide_db" e "gilson"
 
@@ -67,70 +67,6 @@ enum e_config_gilsondb
 
 	egLENMAX			// final, até 32!!!!
 };
-
-
-/*
-	GSON_SINGLE,  // valor unico
-	GSON_LIST,  // é no formato lista, [u16] mas até 64k
-	GSON_MTX2D,  // é no formato matriz, max 2 dimenções!!! [u8][u16] mas jamais pode passar de 64k!!!!
-
-
-	GSON_tBIT,
-	GSON_tINT8,
-	GSON_tUINT8,
-	GSON_tINT16,
-	GSON_tUINT16,
-	GSON_tINT32,
-	GSON_tUINT32,
-	GSON_tINT64,
-	GSON_tUINT64,
-	GSON_tFLOAT32,
-	GSON_tFLOAT64,
-	GSON_tSTRING,
-*/
-
-/*
-enum e_TIPOS_GILSONDB
-{
-	GDB_SINGLE_INT8,
-	GDB_SINGLE_UINT8,
-	GDB_SINGLE_INT16,
-	GDB_SINGLE_UINT16,
-	GDB_SINGLE_INT32,
-	GDB_SINGLE_UINT32,
-	GDB_SINGLE_INT64,
-	GDB_SINGLE_UINT64,
-	GDB_SINGLE_FLOAT32,
-	GDB_SINGLE_FLOAT64,
-	GDB_SINGLE_STRING,
-
-	GDB_LIST_INT8,
-	GDB_LIST_UINT8,
-	GDB_LIST_INT16,
-	GDB_LIST_UINT16,
-	GDB_LIST_INT32,
-	GDB_LIST_UINT32,
-	GDB_LIST_INT64,
-	GDB_LIST_UINT64,
-	GDB_LIST_FLOAT32,
-	GDB_LIST_FLOAT64,
-	GDB_LIST_STRING,
-
-	GDB_MTX2D_INT8,
-	GDB_MTX2D_UINT8,
-	GDB_MTX2D_INT16,
-	GDB_MTX2D_UINT16,
-	GDB_MTX2D_INT32,
-	GDB_MTX2D_UINT32,
-	GDB_MTX2D_INT64,
-	GDB_MTX2D_UINT64,
-	GDB_MTX2D_FLOAT32,
-	GDB_MTX2D_FLOAT64,
-	//GDB_MTX2D_STRING,		// ???? nada ainda...  pois uma lista de strings seria uma matriz de string???
-
-};
-*/
-
 
 enum e_erros_GILSONDB
 {
@@ -220,6 +156,8 @@ int32_t gilsondb_create_end(const uint32_t end_db);
 int32_t gilsondb_add(const uint32_t end_db, uint8_t *data);
 int32_t gilsondb_update(const uint32_t end_db, const uint32_t id, uint8_t *data);
 int32_t gilsondb_del(const uint32_t end_db, const uint32_t id);
+int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *data, uint16_t *data_size, uint32_t *data_end, uint32_t *data_crc);
+int32_t gilsondb_read_size(const uint32_t end_db, const uint32_t id, uint8_t *data, uint16_t *data_size);
 int32_t gilsondb_read(const uint32_t end_db, const uint32_t id, uint8_t *data);
 
 

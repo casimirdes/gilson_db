@@ -1320,10 +1320,9 @@ int32_t gilsondb_del(const uint32_t end_db, const uint32_t id)
 
 
 
-
-int32_t gilsondb_read(const uint32_t end_db, const uint32_t id, uint8_t *data)
+int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *data, uint16_t *data_size, uint32_t *data_end, uint32_t *data_crc)
 {
-	uint32_t endereco, crc2=0, id_cont=0, i;
+	uint32_t endereco=0, crc2=0, id_cont=0, i;
 	int32_t erro=erGILSONDB_OK;
 	uint8_t valid;
 	uint8_t b[HEADER_GILSON_DB_DATA];
@@ -1378,6 +1377,11 @@ int32_t gilsondb_read(const uint32_t end_db, const uint32_t id, uint8_t *data)
 							if(h.crc == crc2)
 							{
 								// tudo certo e achamos nosso id a alocamos a data em 'data'
+
+								*data_size = h.len_pacote;
+								*data_end = endereco;
+								*data_crc = crc2;
+
 								break;
 							}
 							else
@@ -1403,7 +1407,7 @@ int32_t gilsondb_read(const uint32_t end_db, const uint32_t id, uint8_t *data)
 				}
 			}
 		}
-		else
+		else  // egFixedSize==0
 		{
 			endereco = id * s_gdb.size_max_pack + s_gdb.size_header;
 
@@ -1442,6 +1446,10 @@ int32_t gilsondb_read(const uint32_t end_db, const uint32_t id, uint8_t *data)
 					valid = (uint8_t)h.status_id&0xff;
 					id_cont = (h.status_id>>8)&0xffffff;
 					// validar o 'valid'?????
+
+					*data_size = h.len_pacote;
+					*data_end = endereco;
+					*data_crc = crc2;
 				}
 				else
 				{
@@ -1472,6 +1480,22 @@ int32_t gilsondb_read(const uint32_t end_db, const uint32_t id, uint8_t *data)
 
 	update_erro_global(erro);
 	return erro;
+}
+
+
+int32_t gilsondb_read_size(const uint32_t end_db, const uint32_t id, uint8_t *data, uint16_t *data_size)
+{
+	uint32_t data_end=0;
+	uint32_t data_crc=0;
+
+	return gilsondb_read_full(end_db, id, data, data_size, &data_end, &data_crc);
+}
+
+int32_t gilsondb_read(const uint32_t end_db, const uint32_t id, uint8_t *data)
+{
+	uint16_t size=0;
+
+	return gilsondb_read_size(end_db, id, data, &size);
 }
 
 
