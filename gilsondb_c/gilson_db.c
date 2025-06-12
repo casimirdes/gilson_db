@@ -29,7 +29,6 @@
 
 #if (TIPO_DEVICE==0)
 
-
 ...
 
 #else
@@ -585,7 +584,7 @@ static void _print_header_db(const header_db *s_gdb, const uint32_t end_db)
 			s_gdb->code_db,
 			s_gdb->check_ids,
 			s_gdb->size_max_pack,
-			s_gdb->configs[0], s_gdb->configs[1], s_gdb->configs[2], s_gdb->configs[3],
+			s_gdb->configs_bits,
 			s_gdb->size_header,
 			s_gdb->max_keys,
 			erro_global,
@@ -1748,9 +1747,9 @@ int32_t gilsondb_get_configs(const uint32_t end_db, const uint8_t tipo, uint32_t
 	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
 #if (TIPO_DEVICE==0)
-		printf_DEBUG("DEBUG neidedb_get_configs::: tipo:%u, erro:%i, end_db:%lu(%lu)\n", tipo, erro, end_db, (end_db/4096));
+		printf_DEBUG("DEBUG gilsondb_get_configs::: tipo:%u, erro:%i, end_db:%lu(%lu)\n", tipo, erro, end_db, (end_db/4096));
 #else  // PC
-		printf("DEBUG neidedb_get_configs::: tipo:%u, erro:%i, end_db:%u(%u)\n", tipo, erro, end_db, (end_db/4096));
+		printf("DEBUG gilsondb_get_configs::: tipo:%u, erro:%i, end_db:%u(%u)\n", tipo, erro, end_db, (end_db/4096));
 #endif  // #if (TIPO_DEVICE==1)
 	}
 #endif  // #if (USO_DEBUG_LIB==1)
@@ -1793,7 +1792,7 @@ int32_t gilsondb_get_info(const uint32_t end_db, char *sms, const char *nome)
 
 
 
-#if (USO_DEBUG_LIB==1 || TIPO_DEVICE==1)
+#if (USO_DEBUG_LIB==1 && TIPO_DEVICE==1)
 
 int gilsondb_info_deep(const uint32_t end_db, const char *nome_banco)
 {
@@ -2616,7 +2615,7 @@ int32_t gilsondb_multi_add(const uint32_t end_db, const uint8_t i_banco, uint8_t
 		crc2 = gilsondb_crc(0xffffffff, &data[OFF_PACK_GILSON_DB], len_pacote);
 		//-----------------------------------------------------------
 #endif  // #if (USO_DEBUG_LIB==1)
-		 */
+		*/
 
 		if(h.len_pacote==0 || h.len_pacote>(s_gdb.size_max_pack-OFF_PACK_GILSON_DB))
 		{
@@ -2816,11 +2815,26 @@ int32_t gilsondb_get_multi_ibanco_valids(const uint32_t end_db, uint32_t *cont_i
 
 					valid = (uint8_t)h.status_id&0xff;
 
-					if(valid==1 && ibanco==h.i_banco)  // 'valid==1' cuidar pois pode haver 0 ou 255 indica que está vazio...
-					{
-						valids[cont]=i;
+/*
+#if (USO_DEBUG_LIB==1)
+if(PRINT_DEBUG==1)
+{
+#if (TIPO_DEVICE==0)
+					printf_DEBUG("DEBUG gilsondb_get_multi_ibanco_valids loop::: erro:%i, endereco:%lu, i:%lu/%lu, valid:%u, banco:%u==%u\n", erro, endereco, i, cont, valid, h.i_banco, ibanco);
+#else  // PC
+					printf("DEBUG gilsondb_get_multi_ibanco_valids loop::: erro:%i, endereco:%u, i:%u/%u, valid:%u, banco:%u==%u\n", erro, endereco, i, cont, valid, h.i_banco, ibanco);
+#endif  // #if (TIPO_DEVICE==1)
+}
+#endif  // #if (USO_DEBUG_LIB==1)
+*/
 
-						cont+=1;
+					if(valid==1)  // 'valid==1' cuidar pois pode haver 0 ou 255 indica que está vazio...
+					{
+						if(ibanco==h.i_banco)
+						{
+							valids[cont]=i;
+							cont+=1;
+						}
 
 						endereco += h.len_pacote;
 						// resulta no endereço do proximo id
@@ -2850,9 +2864,9 @@ int32_t gilsondb_get_multi_ibanco_valids(const uint32_t end_db, uint32_t *cont_i
 	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
 #if (TIPO_DEVICE==0)
-		printf_DEBUG("DEBUG gilsondb_get_valids::: erro:%i, end_db:%lu(%lu), cont:%lu\n", erro, end_db, (end_db/4096), cont);
+		printf_DEBUG("DEBUG gilsondb_get_multi_ibanco_valids::: erro:%i, end_db:%lu(%lu), cont:%lu/%lu, ibanco:%u\n", erro, end_db, (end_db/4096), i, cont, ibanco);
 #else  // PC
-		printf("DEBUG gilsondb_get_valids::: erro:%i, end_db:%u(%u), cont:%u\n", erro, end_db, (end_db/4096), cont);
+		printf("DEBUG gilsondb_get_multi_ibanco_valids::: erro:%i, end_db:%u(%u), cont:%u/%u, ibanco:%u\n", erro, end_db, (end_db/4096), i, cont, ibanco);
 #endif  // #if (TIPO_DEVICE==1)
 	}
 #endif  // #if (USO_DEBUG_LIB==1)
