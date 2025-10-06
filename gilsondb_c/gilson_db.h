@@ -10,7 +10,15 @@
 
 /*
 
-Versão: 0.55 30/06/25
+ ============================================================================
+ Name			: gilsondb_c
+ Author			: matheus j. mella
+ Version		: 0.56
+ Date			: 05/10/25
+ Description 	: biblioteca 'gilson_db'
+ GitHub			: https://github.com/casimirdes/gilson_db
+ ============================================================================
+
 
 100% baseado no "neide_db" e "gilson"
 
@@ -30,8 +38,9 @@ gilson_db = banco de dados com giison
 
 
 - inicialmente sem suporte a mudança/alteração de formato de tabela ja criada
-- cada 'nome de tabela' é um endereço de onde vai ser o ponto inicial na memória logo sempre vai gravar no mesma posição
+- cada 'nome de tabela' é um endereço de onde vai ser o ponto inicial na memória logo sempre vai gravar na mesma posição
 - não tem tratamento de nivelamento de desgaste de setores, isto é, não escreve dinamicamente em multi setores
+- não tem nada a ver com um sistema de arquivos
 
  */
 
@@ -72,71 +81,71 @@ enum e_erros_GILSONDB
 {
 	// vai fazer 'erGILSONDB_xxxx' onde xxxx-1000 = erro retornado
 	erGILSONDB_OK = 0,
-	erGILSONDB_DEL = -4000,
-	erGILSONDB_LOT,  // banco lotado/cheio
-	erGILSONDB_OCUPADO,
-	erGILSONDB_NOMULTI,
-	erGILSONDB_MODO,
-	erGILSONDB_0,
-	erGILSONDB_1,
-	erGILSONDB_2,
-	erGILSONDB_3,
-	erGILSONDB_4,
-	erGILSONDB_5,
-	erGILSONDB_6,
-	erGILSONDB_7,
-	erGILSONDB_8,
-	erGILSONDB_9,
-	erGILSONDB_10,
-	erGILSONDB_11,
-	erGILSONDB_12,
-	erGILSONDB_13,
-	erGILSONDB_14,
-	erGILSONDB_15,
-	erGILSONDB_16,
-	erGILSONDB_17,
-	erGILSONDB_18,
-	erGILSONDB_19,
-	erGILSONDB_20,
-	erGILSONDB_21,
-	erGILSONDB_22,
-	erGILSONDB_23,
-	erGILSONDB_24,
-	erGILSONDB_25,
-	erGILSONDB_26,
-	erGILSONDB_27,
-	erGILSONDB_28,
-	erGILSONDB_29,
-	erGILSONDB_30,
-	erGILSONDB_31,
-	erGILSONDB_32,
-	erGILSONDB_33,
-	erGILSONDB_34,
-	erGILSONDB_35,
-	erGILSONDB_36,
-	erGILSONDB_37,
-	erGILSONDB_38,
-	erGILSONDB_39,
-	erGILSONDB_40,
-	erGILSONDB_41,
-	erGILSONDB_42,
-	erGILSONDB_43,
-	erGILSONDB_44,
-	erGILSONDB_45,
-	erGILSONDB_46,
-	erGILSONDB_47,
-	erGILSONDB_48,
-	erGILSONDB_49,
-	erGILSONDB_50,
-	erGILSONDB_51,
-	erGILSONDB_52,
-	erGILSONDB_53,
-	erGILSONDB_54,
-	erGILSONDB_55,
-	erGILSONDB_56,
-	erGILSONDB_57,
-	erGILSONDB_58,
-	erGILSONDB_59,
+	erGILSONDB_DEL = -2000,		//
+	erGILSONDB_LOT,  			// banco lotado/cheio (nao que tenha erro interno)
+	erGILSONDB_OCUPADO,			// pacote nao está ativo
+	erGILSONDB_NOMULTI,			//
+	erGILSONDB_MODO,			//
+	erGILSONDB_0,				// erro de CRC do header
+	erGILSONDB_1,				// pacote com versao VERSAO_GILSONDB diferente da lib
+	erGILSONDB_2,				//
+	erGILSONDB_3,				//
+	erGILSONDB_4,				//
+	erGILSONDB_5,				//
+	erGILSONDB_6,				//
+	erGILSONDB_7,				//
+	erGILSONDB_8,				//
+	erGILSONDB_9,				//
+	erGILSONDB_10,				//
+	erGILSONDB_11,				//
+	erGILSONDB_12,				//
+	erGILSONDB_13,				//
+	erGILSONDB_14,				//
+	erGILSONDB_15,				//
+	erGILSONDB_16,				//
+	erGILSONDB_17,				// gilsondb_create_add: passou do limite em bytes do header 'SECTOR_SIZE_MEM'
+	erGILSONDB_18,				// tamanho do header é maior que SECTOR_SIZE_MEM
+	erGILSONDB_19,				//
+	erGILSONDB_20,				//
+	erGILSONDB_21,				//
+	erGILSONDB_22,				//
+	erGILSONDB_23,				//
+	erGILSONDB_24,				//
+	erGILSONDB_25,				//
+	erGILSONDB_26,				//
+	erGILSONDB_27,				//
+	erGILSONDB_28,				//
+	erGILSONDB_29,				//
+	erGILSONDB_30,				// gilsondb_create_init: data dinamica e o valor máximo em bytes do banco está zerado
+	erGILSONDB_31,				//
+	erGILSONDB_32,				//
+	erGILSONDB_33,				//
+	erGILSONDB_34,				//
+	erGILSONDB_35,				//
+	erGILSONDB_36,				//
+	erGILSONDB_37,				//
+	erGILSONDB_38,				//
+	erGILSONDB_39,				//
+	erGILSONDB_40,				//
+	erGILSONDB_41,				//
+	erGILSONDB_42,				//
+	erGILSONDB_43,				//
+	erGILSONDB_44,				//
+	erGILSONDB_45,				//
+	erGILSONDB_46,				//
+	erGILSONDB_47,				//
+	erGILSONDB_48,				//
+	erGILSONDB_49,				//
+	erGILSONDB_50,				//
+	erGILSONDB_51,				//
+	erGILSONDB_52,				//
+	erGILSONDB_53,				//
+	erGILSONDB_54,				//
+	erGILSONDB_55,				//
+	erGILSONDB_56,				//
+	erGILSONDB_57,				//
+	erGILSONDB_58,				//
+	erGILSONDB_59,				//
 };
 
 
@@ -149,7 +158,7 @@ int32_t gilsondb_init(void);
 
 int32_t gilsondb_create_init(const uint32_t end_db, const uint32_t max_packs, const uint32_t codedb, const uint32_t max_bytes, const uint8_t *settings);
 int32_t gilsondb_create_add(const uint8_t key, const uint8_t tipo1, const uint8_t tipo2, const uint16_t cont_list_a, const uint16_t cont_list_b, const uint16_t cont_list_step);
-int32_t gilsondb_create_add_map(const uint16_t *map);
+int32_t gilsondb_create_add_map(const uint16_t n_chaves, const uint16_t map[][6]);
 int32_t gilsondb_create_end(const uint32_t end_db);
 
 
@@ -177,16 +186,15 @@ int32_t gilsondb_encode_mapdin(const uint16_t *map, ...);
 int32_t gilsondb_encode_mapnull(const uint16_t *map);
 
 int32_t gilsondb_decode_init(const uint8_t *pack);
+int32_t gilsondb_decode_valid_map(const uint16_t map[][6], const uint16_t tot_chaves, const uint8_t *pack);
 int32_t gilsondb_decode_end(void);
 int32_t gilsondb_decode_end_crc(uint32_t *crc);
 int32_t gilsondb_decode_map(const uint16_t *map, uint8_t *valor);
-//int32_t gilsondb_decode_mapfix(const uint16_t *map, uint8_t *valor);
-//int32_t gilsondb_decode_mapdin(const uint16_t *map, ...);
 
 
 // para multi bancos no mesmo endereço via 'map'
 int32_t gilsondb_create_multi_init(const uint32_t end_db, const uint32_t max_packs, const uint32_t codedb, const uint32_t max_bytes, const uint8_t n_bancos, const uint8_t *settings);
-int32_t gilsondb_create_multi_add_map(const uint8_t i_banco, const uint8_t n_chaves, const uint16_t map[][6]);
+int32_t gilsondb_create_multi_add_map(const uint8_t i_banco, const uint16_t n_chaves, const uint16_t map[][6]);
 int32_t gilsondb_create_multi_end(const uint32_t end_db);
 
 int32_t gilsondb_multi_add(const uint32_t end_db, const uint8_t i_banco, uint8_t *data);
@@ -201,5 +209,7 @@ int32_t gilsondb_get_multi_ibanco_valids(const uint32_t end_db, uint32_t *cont_i
 int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del);
 
 int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_t chave, uint8_t *data, uint8_t *valor);
+
+
 
 #endif /* SRC_GILSON_DB_GILSON_DB_H_ */

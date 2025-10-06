@@ -16,11 +16,10 @@
 #include <inttypes.h>
 
 
-
+// fins de debug
 #define TIPO_DEVICE			1  // 0=microcontrolador, 1=PC
 #define USO_DEBUG_LIB		0  // 0=desativado, 1=ativado
 #define PRINT_DEBUG			0  // 1 = printa toda vida o debug
-
 
 
 
@@ -210,7 +209,7 @@ static int32_t _encode_header_db(header_db *data, uint8_t *pack, const uint16_t 
     erro = gilson_encode(7, GSON_SINGLE, GSON_tUINT16, CAST_GIL data->size_header);
     erro = gilson_encode(8, GSON_SINGLE, GSON_tUINT16, CAST_GIL data->max_keys);
     erro = gilson_encode(9, GSON_SINGLE, GSON_tUINT8, CAST_GIL data->multi_map);
-    pos_bytes = gilson_encode_end();  // criar outra que nao devolve o crc!!!!
+    pos_bytes = gilson_encode_end();
 
 #if (USO_DEBUG_LIB==1)
 	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
@@ -620,8 +619,6 @@ int32_t gilsondb_init(void)
 }
 
 
-
-// https://www.youtube.com/watch?v=rtGACXTp6mY
 int32_t gilsondb_create_init(const uint32_t end_db, const uint32_t max_packs, const uint32_t codedb, const uint32_t max_bytes, const uint8_t *settings)
 {
 	int32_t erro=erGILSONDB_OK;
@@ -890,8 +887,10 @@ int32_t gilsondb_create_add(const uint8_t key, const uint8_t tipo1, const uint8_
 
 
 
-int32_t gilsondb_create_add_map(const uint16_t *map)
+int32_t gilsondb_create_add_map(const uint16_t n_chaves, const uint16_t map[][6])
 {
+	int32_t erro=erGILSONDB_OK;
+	uint8_t i;
 	/*
 	'map' deve ter 6 'uint16_t'
 	chave = map[0] (obrigatório)
@@ -902,7 +901,17 @@ int32_t gilsondb_create_add_map(const uint16_t *map)
 	cont_list_step = map[5] (obrigatório mesmo que não utilizado)
 	*/
 
-	return gilsondb_create_add(map[0], map[1], map[2], map[3], map[4], map[5]);
+	if(n_chaves > LIMIT_GSON_KEYS)
+	{
+		return erGSON_LIMKEY;
+	}
+
+	for(i=0; i<n_chaves; i++)
+	{
+		erro = gilsondb_create_add(map[i][0], map[i][1], map[i][2], map[i][3], map[i][4], map[i][5]);
+	}
+
+	return erro;
 }
 
 
@@ -1130,6 +1139,8 @@ int32_t gilsondb_update(const uint32_t end_db, const uint32_t id, uint8_t *data)
 
 	if(erro==erGILSONDB_OK || erro==erGILSONDB_LOT)
 	{
+		erro = erGILSONDB_OK;
+
 		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
 		{
 			erro = erGILSONDB_22;
@@ -1578,7 +1589,6 @@ int32_t gilsondb_get_valids(const uint32_t end_db, uint32_t *cont_ids, uint16_t 
 
 	if(erro==erGILSONDB_OK)
 	{
-
 		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
 		{
 			// s_gdb.multi_map = nao importa
@@ -1681,8 +1691,10 @@ int32_t gilsondb_get_configs(const uint32_t end_db, const uint8_t tipo, uint32_t
 
 	erro = _gilsondb_statistics(end_db, &s_gdb, &cont_ids, &id_libre, &id_cont, &size_bytes, &size_ultimo_id, &end_ultimo_id);
 
-	if(erro==erGILSONDB_OK)
+	if(erro==erGILSONDB_OK || erro==erGILSONDB_LOT)
 	{
+		erro = erGILSONDB_OK;  // caso veio o 'erGILSONDB_LOT' porem cautelaaaaaaaaaaaaaaaa, perigooooooooo
+
 		if(tipo==egCONT_IDS_DB)
 		{
 			*config = cont_ids;
@@ -2091,6 +2103,7 @@ int32_t gilsondb_decode_init(const uint8_t *pack)
 {
 	int32_t erro=0;
 	uint8_t modo=0;
+
 	erro = gilson_decode_init(pack, &modo);
 
 	if(erro==0)
@@ -2102,6 +2115,11 @@ int32_t gilsondb_decode_init(const uint8_t *pack)
 	}
 
 	return erro;
+}
+
+int32_t gilsondb_decode_valid_map(const uint16_t map[][6], const uint16_t tot_chaves, const uint8_t *pack)
+{
+	return gilson_decode_valid_map(map, tot_chaves, pack);
 }
 
 
@@ -2131,73 +2149,6 @@ int32_t gilsondb_decode_map(const uint16_t *map, uint8_t *valor)
 
 	return gilson_decode_data_full(map[0], valor);
 }
-
-
-// old
-int32_t gilsondb_decode_mapfix_old(const uint16_t *map, uint8_t *valor)
-{
-	/*
-	'map' deve ter 6 'uint16_t'
-	chave = map[0] (obrigatório)
-	tipo1 = map[1] (obrigatório)
-	tipo2 = map[2] (obrigatório)
-	cont_list_a = map[3] (se for o caso... ou 0)
-	cont_list_b = map[4] (se for o caso... ou 0)
-	cont_list_step = map[5] (se for o caso... ou 0)
-	*/
-
-	return gilson_decode_data(map[0], map[1], map[2], valor, map[3], map[4], map[5]);
-}
-
-// old
-int32_t gilsondb_decode_mapdin_old(const uint16_t *map, ...)
-{
-	uint16_t cont_list_a=0, cont_list_b=0, cont_list_step=0;
-	uint8_t *valor;
-	va_list argptr;
-
-	/*
-	'map' deve ter 3 'uint16_t'
-	chave = map[0] (obrigatório)
-	tipo1 = map[1] (obrigatório)
-	tipo2 = map[2] (obrigatório)
-	*/
-
-	va_start(argptr, map);
-
-	valor = va_arg(argptr, uint8_t *);
-
-	if(map[1] == GSON_SINGLE)
-	{
-		if(map[2] == GSON_tSTRING)
-		{
-			cont_list_a = (uint16_t)va_arg(argptr, int);
-		}
-	}
-	else if(map[1] == GSON_LIST)
-	{
-		cont_list_a = (uint16_t)va_arg(argptr, int);
-		if(map[2] == GSON_tSTRING)
-		{
-			cont_list_b = (uint16_t)va_arg(argptr, int);
-		}
-	}
-	else if(map[1] == GSON_MTX2D)
-	{
-		cont_list_a = (uint16_t)va_arg(argptr, int);
-		cont_list_b = (uint16_t)va_arg(argptr, int);
-		cont_list_step = (uint16_t)va_arg(argptr, int);
-	}
-	else
-	{
-		// erro
-	}
-
-	va_end(argptr);
-
-	return gilson_decode_data(map[0], map[1], map[2], valor, cont_list_a, cont_list_b, cont_list_step);
-}
-
 
 
 //=======================================================================================================================================
@@ -2313,7 +2264,7 @@ int32_t gilsondb_create_multi_init(const uint32_t end_db, const uint32_t max_pac
 }
 
 
-int32_t gilsondb_create_multi_add_map(const uint8_t i_banco, const uint8_t n_chaves, const uint16_t map[][6])
+int32_t gilsondb_create_multi_add_map(const uint8_t i_banco, const uint16_t n_chaves, const uint16_t map[][6])
 {
 	int32_t erro=erGILSONDB_OK;
 	uint16_t size_map=0, off=0, nbytes=1, i;
@@ -2330,6 +2281,12 @@ int32_t gilsondb_create_multi_add_map(const uint8_t i_banco, const uint8_t n_cha
 		cont_list_b = map[4] (se for o caso... ou 0)
 		cont_list_step = map[5] (se for o caso... ou 0)
 		*/
+
+		if(n_chaves > LIMIT_GSON_KEYS)
+		{
+			erro = erGSON_LIMKEY;
+			goto deu_erro;
+		}
 
 		if(i_banco >= s_gilsondb.multi_map)
 		{
@@ -2907,11 +2864,12 @@ int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del)
 
 	for(i=0; i<cont_del; i++)
 	{
-		//erro = _gilsondb_check_db_init(end_db, &s_gdb);
 		erro = _gilsondb_statistics(end_db, &s_gdb, &cont_ids, &id_libre, &id_cont, &size_bytes, &size_ultimo_id, &end_ultimo_id);
 
 		if(erro==erGILSONDB_OK || erro==erGILSONDB_LOT)
 		{
+			erro = erGILSONDB_OK;
+
 			if(flag_init==0 && cont_del>cont_ids)  // vai ficar fazendo toda vida... cont_del>=s_gdb.max_packs
 			{
 				erro = erGILSONDB_45;
@@ -3055,6 +3013,7 @@ int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_
 								erro = gilsondb_decode_init(data);
 								erro = gilson_decode_data_full(chave, valor);
 								pos_bytes = gilsondb_decode_end();
+								// da para usar o "gilson_decode_key()" agora...
 
 								if(pos_bytes<0 || erro!=0)
 								{
@@ -3136,6 +3095,7 @@ int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_
 					erro = gilsondb_decode_init(data);
 					erro = gilson_decode_data_full(chave, valor);
 					pos_bytes = gilsondb_decode_end();
+					// da para usar o "gilson_decode_key()" agora...
 
 					if(pos_bytes<0 || erro!=0)
 					{
