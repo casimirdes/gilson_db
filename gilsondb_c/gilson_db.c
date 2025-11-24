@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-
+#include <time.h>
 
 // fins de debug
 #define TIPO_DEVICE			1  // 0=microcontrolador, 1=PC
@@ -36,6 +36,8 @@
 #include "../emu_flash_nor/flash_nor.h"  // "camada de baixo nível" da memória
 #include "../gilson_c/gilson.h"
 
+#include "../funs_geral.h"
+
 #endif  // #if (TIPO_DEVICE==1)
 
 
@@ -52,7 +54,7 @@
 #define HEADER_DB				64  	// 4+60 tamanho de offset de cabeçalho de configuracoes do banco...
 #define SECTOR_SIZE_MEM			4096	// supondo uma memória flash NOR que é por setores fixos, aqui temos o tamanho em bytes do setor
 
-#define VERSAO_GILSONDB			0x4d4a4d64  // "MJM"64
+#define VERSAO_GILSONDB			0x4d4a4d65  // "MJM"65
 
 enum index_hdata
 {
@@ -78,7 +80,7 @@ typedef struct
 	uint32_t code_db;  			// código para validar criacao do banco na posicao da memoria que será gravada
 	uint32_t check_ids;			// esquema de validador que muda toda vez que o banco é criado/limpo onde cada id grava esse valor no pacote
 	uint32_t size_max_pack;		// tamanho do pacote 'data' (no pior caso) e soma o 'OFF_PACK_GILSON_DB'
-	uint32_t size_max_tot;		// tamanho maximo do pacote, caso o usuário entre com um valor especifico
+	uint32_t size_max_tot;		// tamanho máximo do banco, caso o usuário entre com um valor especifico
 
 	uint32_t configs_bits;		// ver 'e_config_gilsondb'
 
@@ -120,7 +122,7 @@ typedef struct
 
 
 
-static uint8_t buf_db[SECTOR_SIZE_MEM];  // base no setor da memoria que vale 4096 bytes, 3 setores...
+static uint8_t buf_db[SECTOR_SIZE_MEM];  // base no setor da memoria que vale 4096 bytes, vai salvar o header + mapa das chaves... dinâmico
 static uint32_t seed_prng = 667;  // pobre e sempre iguallll, pensar em algo melhor...
 static uint8_t init_seed_prng = 0;
 
@@ -379,11 +381,21 @@ static int32_t _gilsondb_statistics(const uint32_t end_db, header_db *s_gdb, uin
 
 	if(erro==erGILSONDB_OK)
 	{
-		if(_bitRead(s_gdb->configs_bits, egFixedSize)==1)
+		//================================================================================================================================================
+		//================================================================================================================================================
+		if(_bitRead(s_gdb->configs_bits, egDynamicSize)==1)
 		{
 			// aqui o que importa é descobrir o endereço de onde começa o proximo id libre e vamos alocar esse endereço em 'xxxxxx'
 			endereco = s_gdb->size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
+
+			if(_bitRead(s_gdb->configs_bits, egMapSizeIDs)==1)
+			{
+				endereco += (s_gdb->max_packs*4);
+				// como vamos varrer todos os ids... entao só vamos pular o offset de header_size_ids
+			}
+
 			endereco += end_db;
+
 			for(i=0; i<s_gdb->max_packs; i++)
 			{
 				erro = mem_read_buff(endereco, HEADER_GILSON_DB_DATA, b);
@@ -451,6 +463,8 @@ static int32_t _gilsondb_statistics(const uint32_t end_db, header_db *s_gdb, uin
 			//*id_libre_ = id_libre;
 			//*id_cont_ = id_cont_maior;
 		}
+		//================================================================================================================================================
+		//================================================================================================================================================
 		else
 		{
 			for(i=0; i<s_gdb->max_packs; i++)
@@ -540,10 +554,12 @@ static int32_t _gilsondb_statistics(const uint32_t end_db, header_db *s_gdb, uin
 				//printf("nada2??? id_libre:%u, cont_ids:%u\n", id_libre, cont_ids);
 			}
 		}
+		//================================================================================================================================================
+		//================================================================================================================================================
 	}
 
-	// para modo 'egFixedSize' teremos contagem dos bytes usados
-	// para modo sem 'egFixedSize' é o mesmo que percorrer tamanho maximo do banco
+	// para modo 'egDynamicSize'==1 teremos contagem dos bytes usados
+	// para modo 'egDynamicSize'==0 é o mesmo que percorrer tamanho maximo do banco
 	size_bytes = endereco - end_db;  // total em bytes deslocado para fazer as leituras
 
 	*cont_ids_ = cont_ids;
@@ -551,7 +567,7 @@ static int32_t _gilsondb_statistics(const uint32_t end_db, header_db *s_gdb, uin
 	*id_cont_ = id_cont_maior;
 	*size_bytes_ = size_bytes;
 	*size_ultimo_id_ = h.len_pacote;  // tamanho do último pacote
-	*end_ultimo_id_ = end_ultimo_id;
+	*end_ultimo_id_ = end_ultimo_id;  // para 'egDynamicSize'==1, 'id_libre'=='end_ultimo_id'
 
 #if (USO_DEBUG_LIB==1)
 	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
@@ -658,7 +674,7 @@ int32_t gilsondb_create_init(const uint32_t end_db, const uint32_t max_packs, co
 		//s_gilsondb.configs[2] = settings[2];
 		//s_gilsondb.configs[3] = settings[3];
 
-		if(_bitRead(s_gilsondb.configs_bits, egFixedSize)==1)
+		if(_bitRead(s_gilsondb.configs_bits, egDynamicSize)==1)
 		{
 			if(max_bytes==0)
 			{
@@ -922,7 +938,7 @@ int32_t gilsondb_create_end(const uint32_t end_db)
 
 	if(flag_s_gilsondb_ativo==1)
 	{
-		if(_bitRead(s_gilsondb.configs_bits, egFixedSize)==0)
+		if(_bitRead(s_gilsondb.configs_bits, egDynamicSize)==0)
 		{
 			s_gilsondb.size_max_tot = s_gilsondb.max_packs * s_gilsondb.size_max_pack + s_gilsondb.size_header;
 		}
@@ -983,7 +999,7 @@ int32_t gilsondb_create_end(const uint32_t end_db)
 
 int32_t gilsondb_add(const uint32_t end_db, uint8_t *data)
 {
-	uint32_t endereco=0, cont_ids=0, id_libre=0, id_cont=0, crc2=0, size_bytes=0, size_ultimo_id=0, end_ultimo_id=0;
+	uint32_t endereco=0, cont_ids=0, id_libre=0, id_cont=0, crc2=0, size_bytes=0, size_ultimo_id=0, end_ultimo_id=0, end_size_id=0;
 	int32_t erro=erGILSONDB_OK;
 	uint8_t b[HEADER_GILSON_DB_DATA];
 	header_db s_gdb;
@@ -1015,7 +1031,7 @@ int32_t gilsondb_add(const uint32_t end_db, uint8_t *data)
 #endif  // #if (USO_DEBUG_LIB==1)
 
 
-		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 		{
 			// em 'id_libre' teremos o endereco do proximo id
 			endereco = id_libre;
@@ -1047,7 +1063,6 @@ int32_t gilsondb_add(const uint32_t end_db, uint8_t *data)
 		endereco += end_db;
 
 		// análise do configs... do pacote antigo caso exista...
-		// pra o 'egFixedSize' ativo, isso vai dar ruim pois vai estar errado
 		mem_read_buff(endereco, OFF_PACK_GILSON_DB, b);
 		memcpy(&h.status_id, &b[e_status_id], 4);
 		memcpy(&h.check_ids, &b[e_check_ids], 4);
@@ -1100,6 +1115,17 @@ int32_t gilsondb_add(const uint32_t end_db, uint8_t *data)
 		// valida gravacao???
 		// tem que ir por partes... pois pode ser que nao temos um buffer do tamanho da data
 
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1 && _bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
+		{
+			end_size_id = s_gdb.size_header;
+
+			end_size_id += (cont_ids * 4);
+
+			end_size_id += end_db;
+
+			erro = mem_write_uint32(end_size_id, endereco);
+		}
+
 	}
 
 
@@ -1141,7 +1167,7 @@ int32_t gilsondb_update(const uint32_t end_db, const uint32_t id, uint8_t *data)
 	{
 		erro = erGILSONDB_OK;
 
-		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 		{
 			erro = erGILSONDB_22;
 			goto deu_erro;
@@ -1262,7 +1288,7 @@ int32_t gilsondb_del(const uint32_t end_db, const uint32_t id)
 
 	if(erro==erGILSONDB_OK)
 	{
-		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 		{
 			erro = erGILSONDB_23;
 			goto deu_erro;
@@ -1343,12 +1369,17 @@ int32_t gilsondb_del(const uint32_t end_db, const uint32_t id)
 
 int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *data, uint16_t *data_size, uint32_t *data_end, uint32_t *data_crc)
 {
-	uint32_t endereco=0, crc2=0, id_cont=0, i;
+	uint32_t endereco=0, crc2=0, id_cont=0, i=0, j=0, end_size_id=0;
 	int32_t erro=erGILSONDB_OK;
 	uint8_t valid=0;
 	uint8_t b[HEADER_GILSON_DB_DATA];
 	header_db s_gdb;
 	header_data h={0};
+
+#if (USO_DEBUG_LIB==1)
+	uint32_t ts[6]={0};
+	ts[0] = millis();
+#endif  // #if (USO_DEBUG_LIB==1)
 
 	erro = _gilsondb_check_db_init(end_db, &s_gdb);
 
@@ -1360,18 +1391,48 @@ int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *da
 			goto deu_erro;
 		}
 
-		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		//================================================================================================================================================
+		//================================================================================================================================================
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 		{
 			// s_gdb.multi_map = nao importa o tipo
 
-			// vamos fazer uma busca linear no banco até chegar no id alvo
-			endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
-			endereco += end_db;
-			for(i=0; i<s_gdb.max_packs; i++)
+			if(_bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
 			{
+				//endereco += (s_gdb.max_packs*4);
+				// ler o id na header de sizeids e alocar em 'endereco'
+
+				end_size_id = s_gdb.size_header;
+
+				end_size_id += (id * 4);
+
+				end_size_id += end_db;
+
+				endereco = mem_read_uint32(end_size_id);
+
+				j=id;
+			}
+			else
+			{
+				// vamos fazer uma busca linear no banco até chegar no id alvo
+				endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
+				j=0;
+				endereco += end_db;
+			}
+
+			for(i=j; i<s_gdb.max_packs; i++)
+			{
+#if (USO_DEBUG_LIB==1)
+				ts[4] = millis();
+#endif  // #if (USO_DEBUG_LIB==1)
+
 				// análise do configs...
 				erro = mem_read_buff(endereco, HEADER_GILSON_DB_DATA, b);
 				_decode_header_data(b, &h);
+
+#if (USO_DEBUG_LIB==1)
+				ts[5] += (millis() - ts[4]);
+#endif  // #if (USO_DEBUG_LIB==1)
 
 				if(h.check_ids == s_gdb.check_ids)
 				{
@@ -1390,8 +1451,17 @@ int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *da
 					{
 						if(id == i)
 						{
+
+#if (USO_DEBUG_LIB==1)
+							ts[2] = millis();
+#endif  // #if (USO_DEBUG_LIB==1)
+
 							// assume que o buffer 'data' vai conseguir alocar os dados resgatados!!!!
 							erro = mem_read_buff(endereco, h.len_pacote, data);
+
+#if (USO_DEBUG_LIB==1)
+							ts[3] = millis();
+#endif  // #if (USO_DEBUG_LIB==1)
 
 							crc2 = gilsondb_crc(0xffffffff, &data[e_init_check_dat], (h.len_pacote-e_init_check_dat));
 
@@ -1428,7 +1498,9 @@ int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *da
 				}
 			}
 		}
-		else  // egFixedSize==0
+		//================================================================================================================================================
+		//================================================================================================================================================
+		else  // egDynamicSize==0
 		{
 			endereco = id * s_gdb.size_max_pack + s_gdb.size_header;
 
@@ -1482,18 +1554,21 @@ int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *da
 				erro=erGILSONDB_12;
 			}
 		}
+		//================================================================================================================================================
+		//================================================================================================================================================
 	}
 
 
 	deu_erro:
 
 #if (USO_DEBUG_LIB==1)
+	ts[1] = millis();
 	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
 #if (TIPO_DEVICE==0)
-		printf_DEBUG("DEBUG gilsondb_read::: erro:%i, end_db:%lu(%lu), id:%lu, valid:%lu, id_cont:%lu, len_pacote:%u, crc:%lu|%lu, endereco:%lu\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco);
+		printf_DEBUG("DEBUG gilsondb_read::: erro:%i, end_db:%lu(%lu), id:%lu, valid:%lu, id_cont:%lu, len_pacote:%u, crc:%lu|%lu, endereco:%lu, ts:%lu, tsd:%lu, tx:%lu\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco, (ts[1]-ts[0]), (ts[3]-ts[2]), ts[5]);
 #else  // PC
-		printf("DEBUG gilsondb_read::: erro:%i, end_db:%u(%u), id:%u, valid:%u, id_cont:%u, len_pacote:%u, crc:%u|%u, endereco:%u\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco);
+		printf("DEBUG gilsondb_read::: erro:%i, end_db:%u(%u), id:%u, valid:%u, id_cont:%u, len_pacote:%u, crc:%u|%u, endereco:%u, ts:%u, tsd:%u, tx:%u\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco, (ts[1]-ts[0]), (ts[3]-ts[2]), ts[5]);
 #endif  // #if (TIPO_DEVICE==1)
 	}
 #endif  // #if (USO_DEBUG_LIB==1)
@@ -1589,13 +1664,23 @@ int32_t gilsondb_get_valids(const uint32_t end_db, uint32_t *cont_ids, uint16_t 
 
 	if(erro==erGILSONDB_OK)
 	{
-		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		//================================================================================================================================================
+		//================================================================================================================================================
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 		{
 			// s_gdb.multi_map = nao importa
 
 			// vamos fazer uma busca linear no banco até chegar no id alvo
 			endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
+
+			if(_bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
+			{
+				endereco += (s_gdb.max_packs*4);
+				// como aqui vamos varrer todos linearmente... entao nao vou utilizar o header_size_ids... somente pula offset dele
+			}
+
 			endereco += end_db;
+
 			for(i=0; i<s_gdb.max_packs; i++)
 			{
 				// análise do configs...
@@ -1637,6 +1722,8 @@ int32_t gilsondb_get_valids(const uint32_t end_db, uint32_t *cont_ids, uint16_t 
 				}
 			}
 		}
+		//================================================================================================================================================
+		//================================================================================================================================================
 		else
 		{
 			for(i=0; i<s_gdb.max_packs; i++)
@@ -1662,6 +1749,8 @@ int32_t gilsondb_get_valids(const uint32_t end_db, uint32_t *cont_ids, uint16_t 
 				}
 			}
 		}
+		//================================================================================================================================================
+		//================================================================================================================================================
 	}
 
 	*cont_ids = cont;
@@ -1733,7 +1822,7 @@ int32_t gilsondb_get_configs(const uint32_t end_db, const uint8_t tipo, uint32_t
 		}
 		else if(tipo==egUSED_BYTES_DB)
 		{
-			if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+			if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 			{
 				max1 = size_bytes;
 			}
@@ -1748,7 +1837,7 @@ int32_t gilsondb_get_configs(const uint32_t end_db, const uint8_t tipo, uint32_t
 			//max2 = s_gdb.max_packs * s_gdb.size_max_pack + s_gdb.size_header;
 			max2 = s_gdb.size_max_tot;
 
-			if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+			if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 			{
 				max1 = size_bytes;
 			}
@@ -1790,22 +1879,33 @@ int32_t gilsondb_get_info(const uint32_t end_db, char *sms, const char *nome)
 	header_db s_gdb={0};
 
 	erro = _gilsondb_statistics(end_db, &s_gdb, &cont_ids, &id_libre, &id_cont, &size_bytes, &size_ultimo_id, &end_ultimo_id);
-	max2 = s_gdb.max_packs * s_gdb.size_max_pack;
+
+	if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
+	{
+		max2 = s_gdb.size_max_tot;
+	}
+	else
+	{
+		max2 = s_gdb.max_packs * s_gdb.size_max_pack;
+	}
+
 
 #if (TIPO_DEVICE==0)
 	i = sprintf(sms, "---------------------------------\nBANCO:%s, END:%lu(%lu), VERSAO:%08lx, erro:%i\n"
-			"\tMAX_PACKS:%lu, OFFSET_PACK:%lu(%u), CODE:%lu, max_size:%lu, check_ids:%lu, configs:0x%08lx, multi_map:%u, OFFSET_HEAD:%u\n"
+			"\tMAX_PACKS:%lu, OFFSET_PACK:%lu(%u), CODE:%lu, max_size:%lu(%lu), check_ids:%lu, "
+			"configs:0x%08lx, multi_map:%u, OFFSET_HEAD:%u\n"
 			"\tcont:%lu, libre:%lu, id_cont:%lu\n---------------------------------\n",
 			nome, end_db, (end_db/4096), s_gdb.versao, erro,
-			s_gdb.max_packs, s_gdb.size_max_pack, OFF_PACK_GILSON_DB, s_gdb.code_db, max2, s_gdb.check_ids,
+			s_gdb.max_packs, s_gdb.size_max_pack, OFF_PACK_GILSON_DB, s_gdb.code_db, max2, s_gdb.size_max_tot, s_gdb.check_ids,
 			s_gdb.configs_bits, s_gdb.multi_map, s_gdb.size_header,
 			cont_ids, id_libre, id_cont);
 #else  // PC
 	i = sprintf(sms, "---------------------------------\nBANCO:%s, END:%u(%u), VERSAO:%08x, erro:%i\n"
-			"\tMAX_PACKS:%u, OFFSET_PACK:%u(%u), CODE:%u, max_size:%u, check_ids:%u, configs:0x%08x, multi_map:%u, OFFSET_HEAD:%u\n"
+			"\tMAX_PACKS:%u, OFFSET_PACK:%u(%u), CODE:%u, max_size:%u(%u), check_ids:%u, "
+			"configs:0x%08x, multi_map:%u, OFFSET_HEAD:%u\n"
 			"\tcont:%u, libre:%u, id_cont:%u\n---------------------------------\n",
 			nome, end_db, (end_db/4096), s_gdb.versao, erro,
-			s_gdb.max_packs, s_gdb.size_max_pack, OFF_PACK_GILSON_DB, s_gdb.code_db, max2, s_gdb.check_ids,
+			s_gdb.max_packs, s_gdb.size_max_pack, OFF_PACK_GILSON_DB, s_gdb.code_db, max2, s_gdb.size_max_tot, s_gdb.check_ids,
 			s_gdb.configs_bits, s_gdb.multi_map, s_gdb.size_header,
 			cont_ids, id_libre, id_cont);
 #endif  // #if (TIPO_DEVICE==1)
@@ -1894,11 +1994,19 @@ int gilsondb_info_deep(const uint32_t end_db, const char *nome_banco)
 	    printf("| %-4s | %-10s | %-12s | %-12s | %-5s | %-8s | %-10s | %-10s | %-5s |\n", "i", "endereco", "status_id", "check_ids", "valid", "id_cont", "len_pacote", "crc", "i_ban");
 	    printf("|------|------------|--------------|--------------|-------|----------|------------|------------|-------|\n");
 
-	    if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+	    if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 	    {
 			// vamos fazer uma busca linear no banco até chegar no id alvo
 			endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
+
+			if(_bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
+			{
+				endereco += (s_gdb.max_packs*4);
+				// como aqui vamos varrer todos linearmente... entao nao vou utilizar o header_size_ids... somente pula offset dele
+			}
+
 			endereco += end_db;
+
 			for(i=0; i<s_gdb.max_packs; i++)
 			{
 				erro = mem_read_buff(endereco, HEADER_GILSON_DB_DATA, b);
@@ -2200,7 +2308,7 @@ int32_t gilsondb_create_multi_init(const uint32_t end_db, const uint32_t max_pac
 		//s_gilsondb.configs[2] = settings[2];
 		//s_gilsondb.configs[3] = settings[3];
 
-		if(_bitRead(s_gilsondb.configs_bits, egFixedSize)==1)
+		if(_bitRead(s_gilsondb.configs_bits, egDynamicSize)==1)
 		{
 			if(max_bytes==0)
 			{
@@ -2211,7 +2319,7 @@ int32_t gilsondb_create_multi_init(const uint32_t end_db, const uint32_t max_pac
 		}
 		else
 		{
-			// ate entao só funciona para modo 'egFixedSize' ativo!!!!
+			// ate entao só funciona para modo 'egDynamicSize' ativo!!!!
 			erro = erGILSONDB_34;
 			goto deu_erro;
 		}
@@ -2440,8 +2548,8 @@ int32_t gilsondb_create_multi_end(const uint32_t end_db)
 	if(flag_s_gilsondb_ativo==1)
 	{
 		/*
-		nao tem isso ainda... somente modo 'egFixedSize'
-		if(_bitRead(s_gilsondb.configs_bits, egFixedSize)==0)
+		nao tem isso ainda... somente modo 'egDynamicSize'
+		if(_bitRead(s_gilsondb.configs_bits, egDynamicSize)==0)
 		{
 			s_gilsondb.size_max_tot = s_gilsondb.max_packs * s_gilsondb.size_max_pack + s_gilsondb.size_header;
 		}
@@ -2501,7 +2609,7 @@ int32_t gilsondb_create_multi_end(const uint32_t end_db)
 
 int32_t gilsondb_multi_add(const uint32_t end_db, const uint8_t i_banco, uint8_t *data)
 {
-	uint32_t endereco=0, cont_ids=0, id_libre=0, id_cont=0, crc2=0, size_bytes=0, size_ultimo_id=0, end_ultimo_id=0;
+	uint32_t endereco=0, cont_ids=0, id_libre=0, id_cont=0, crc2=0, size_bytes=0, size_ultimo_id=0, end_ultimo_id=0, end_size_id=0;
 	int32_t erro=erGILSONDB_OK;
 	uint8_t b[HEADER_GILSON_DB_DATA];
 	header_db s_gdb;
@@ -2533,7 +2641,7 @@ int32_t gilsondb_multi_add(const uint32_t end_db, const uint8_t i_banco, uint8_t
 			goto deu_erro;
 		}
 
-		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 		{
 			// em 'id_libre' teremos o endereco do proximo id
 			endereco = id_libre;
@@ -2569,7 +2677,7 @@ int32_t gilsondb_multi_add(const uint32_t end_db, const uint8_t i_banco, uint8_t
 		endereco += end_db;
 
 		// análise do configs... do pacote antigo caso exista...
-		// pra o 'egFixedSize' ativo, isso vai dar ruim pois vai estar errado
+		// pra o 'egDynamicSize' ativo, isso vai dar ruim pois vai estar errado
 		mem_read_buff(endereco, OFF_PACK_GILSON_DB, b);
 		memcpy(&h.status_id, &b[e_status_id], 4);
 		memcpy(&h.check_ids, &b[e_check_ids], 4);
@@ -2621,6 +2729,18 @@ int32_t gilsondb_multi_add(const uint32_t end_db, const uint8_t i_banco, uint8_t
 		// valida gravacao???
 		// tem que ir por partes... pois pode ser que nao temos um buffer do tamanho da data
 
+		//if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1 && _bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
+		if(_bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
+		{
+			end_size_id = s_gdb.size_header;
+
+			end_size_id += (cont_ids * 4);
+
+			end_size_id += end_db;
+
+			erro = mem_write_uint32(end_size_id, endereco);
+		}
+
 	}
 
 
@@ -2664,11 +2784,19 @@ int32_t gilsondb_get_multi_valids(const uint32_t end_db, uint32_t *cont_ids, uin
 			goto deu_erro;
 		}
 
-		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 		{
 			// vamos fazer uma busca linear no banco até chegar no id alvo
 			endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
+
+			if(_bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
+			{
+				endereco += (s_gdb.max_packs*4);
+				// como aqui vamos varrer todos linearmente... entao nao vou utilizar o header_size_ids... somente pula offset dele
+			}
+
 			endereco += end_db;
+
 			for(i=0; i<s_gdb.max_packs; i++)
 			{
 				// análise do configs...
@@ -2758,11 +2886,19 @@ int32_t gilsondb_get_multi_ibanco_valids(const uint32_t end_db, uint32_t *cont_i
 			goto deu_erro;
 		}
 
-		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 		{
 			// vamos fazer uma busca linear no banco até chegar no id alvo
 			endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
+
+			if(_bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
+			{
+				endereco += (s_gdb.max_packs*4);
+				// como aqui vamos varrer todos linearmente... entao nao vou utilizar o header_size_ids... somente pula offset dele
+			}
+
 			endereco += end_db;
+
 			for(i=0; i<s_gdb.max_packs; i++)
 			{
 				// análise do configs...
@@ -2852,7 +2988,7 @@ if(PRINT_DEBUG==1)
 
 
 // sempre vai apagar do último para o primeiro, contando 'cont_del' ids
-// serve para 'egFixedSize' e multi_bancos
+// serve para 'egDynamicSize' e multi_bancos
 int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del)
 {
 	uint32_t endereco=0, cont_ids=0, id_libre=0, id_cont=0, size_bytes=0, id=0, i, size_ultimo_id=0, end_ultimo_id=0;
@@ -2880,7 +3016,7 @@ int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del)
 			id = cont_ids-1;  // sempre apaga o último
 
 
-			if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+			if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 			{
 				endereco = end_ultimo_id;
 
@@ -2951,7 +3087,7 @@ int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del)
 // OBS: limpar 'uint8_t *valor' externamente e antes de usar isso, ja vi problemas
 int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_t chave, uint8_t *data, uint8_t *valor)
 {
-	uint32_t endereco=0, crc2=0, id_cont=0, i;
+	uint32_t endereco=0, crc2=0, id_cont=0, i=0, j=0, end_size_id=0;
 	int32_t erro=erGILSONDB_OK, pos_bytes = 0;
 	uint8_t valid=0;
 	uint8_t b[HEADER_GILSON_DB_DATA];
@@ -2968,14 +3104,35 @@ int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_
 			goto deu_erro;
 		}
 
-		if(_bitRead(s_gdb.configs_bits, egFixedSize)==1)
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
 		{
 			// s_gdb.multi_map = nao importa o tipo
 
-			// vamos fazer uma busca linear no banco até chegar no id alvo
-			endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
-			endereco += end_db;
-			for(i=0; i<s_gdb.max_packs; i++)
+			if(_bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
+			{
+				//endereco += (s_gdb.max_packs*4);
+				// ler o id na header de sizeids e alocar em 'endereco'
+
+				end_size_id = s_gdb.size_header;
+
+				end_size_id += (id * 4);
+
+				end_size_id += end_db;
+
+				endereco = mem_read_uint32(end_size_id);
+
+				j=id;
+			}
+			else
+			{
+				// vamos fazer uma busca linear no banco até chegar no id alvo
+				endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
+				j=0;
+				endereco += end_db;
+			}
+
+
+			for(i=j; i<s_gdb.max_packs; i++)
 			{
 				// análise do configs...
 				erro = mem_read_buff(endereco, HEADER_GILSON_DB_DATA, b);

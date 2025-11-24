@@ -13,8 +13,8 @@
  ============================================================================
  Name			: gilsondb_c
  Author			: matheus j. mella
- Version		: 0.56
- Date			: 05/10/25
+ Version		: 0.57
+ Date			: 22/11/25
  Description 	: biblioteca 'gilson_db'
  GitHub			: https://github.com/casimirdes/gilson_db
  ============================================================================
@@ -69,11 +69,11 @@ enum e_status_gilsondb
 
 enum e_config_gilsondb
 {
-	egFixedSize,		// 0=ativado cada pack de id é gravado com offset do pior caso para poder termos add/update/delete como um banco normal, 1=somente add data dinamica e invativar (invalida qualquer outro flag!)
+	egDynamicSize,		// 0=cada pack de id é gravado com offset do pior caso para poder termos add/update/delete como um banco normal, 1=salva pacotes com tamanho dinâmico, só é possível add e excluir o último id
 	egAutoLoop, 		// 1=flag de configuração do auto_loop, nao retorna o erGILSONDB_LOT e add sempre no local do mais antigo 'id_cont'
 	egCheckUpdID,		// 1=flag validar ou nao 'check_ids' na funcao de update id, temos um code de banco antigo ou lixo qualquer... vai add mesmo assim e assumir esse local como valido
 	egCheckAddID,		// 1=flag add no lugar de inativo e válido nao muda 'id_cont', para fins de manter historico de 'id_cont' caso ja tenha um antigo
-
+	egMapSizeIDs,		// quando 'egDynamicSize'==1, teremos a tabela de posicoes (uint32_t) de cada um dos IDs do banco, é ignorado quando 'egDynamicSize'==0 (come +memória e desgasta +setor)
 	egLENMAX			// final, até 32!!!!
 };
 
@@ -190,6 +190,10 @@ int32_t gilsondb_decode_valid_map(const uint16_t map[][6], const uint16_t tot_ch
 int32_t gilsondb_decode_end(void);
 int32_t gilsondb_decode_end_crc(uint32_t *crc);
 int32_t gilsondb_decode_map(const uint16_t *map, uint8_t *valor);
+
+
+//============================================================================================
+//============================================================================================
 
 
 // para multi bancos no mesmo endereço via 'map'
