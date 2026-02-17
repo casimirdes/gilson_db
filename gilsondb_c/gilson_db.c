@@ -16,17 +16,13 @@
 #include <inttypes.h>
 #include <time.h>
 
-// fins de debug
-#define TIPO_DEVICE			1  // 0=microcontrolador, 1=PC
-#define USO_DEBUG_LIB		0  // 0=desativado, 1=ativado
-#define PRINT_DEBUG			0  // 1 = printa toda vida o debug
 
-
+#include "gilson_db.h"
 
 // aqui customiza conforme o periférico se é microcntrolador, um PC...
 // se tem que add uma lib específica...
 
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 
 ...
 
@@ -34,14 +30,14 @@
 
 
 #include "../emu_flash_nor/flash_nor.h"  // "camada de baixo nível" da memória
-#include "../gilson_c/gilson.h"
+#include "../gilson_c/gilson.h"  // base fundamental...
 
 #include "../funs_geral.h"
 
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 
 
-#include "gilson_db.h"
+
 
 
 #define _bitRead(value, bit) (((value) >> (bit)) & 0x01)
@@ -84,7 +80,7 @@ typedef struct
 
 	uint32_t configs_bits;		// ver 'e_config_gilsondb'
 
-	uint16_t size_header;     	// tamanho do pacote header, vai ser dinamico agora... (da pra ser um uint16_t)
+	uint16_t size_header;     	// tamanho do pacote header, vai ser dinamico agora... (contem mapa gilson do banco/tabela)
 
 	uint16_t max_keys;			// total de chaves do gilson, até 256
 
@@ -200,29 +196,29 @@ static int32_t _encode_header_db(header_db *data, uint8_t *pack, const uint16_t 
 {
 	int32_t erro=0, pos_bytes = 0;
 
-    erro = gilson_encode_init(GSON_MODO_ZIP, pack, size);
-    erro = gilson_encode(0, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->versao);
-    erro = gilson_encode(1, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->max_packs);
-    erro = gilson_encode(2, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->code_db);
-    erro = gilson_encode(3, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->check_ids);
-    erro = gilson_encode(4, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->size_max_pack);
-    erro = gilson_encode(5, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->size_max_tot);
-    erro = gilson_encode(6, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->configs_bits);
-    erro = gilson_encode(7, GSON_SINGLE, GSON_tUINT16, CAST_GIL data->size_header);
-    erro = gilson_encode(8, GSON_SINGLE, GSON_tUINT16, CAST_GIL data->max_keys);
-    erro = gilson_encode(9, GSON_SINGLE, GSON_tUINT8, CAST_GIL data->multi_map);
+    erro = gilson_encode_init(GIL_MODO_ZIP, pack, size);
+    erro = gilson_encode(0, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->versao);
+    erro = gilson_encode(1, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->max_packs);
+    erro = gilson_encode(2, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->code_db);
+    erro = gilson_encode(3, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->check_ids);
+    erro = gilson_encode(4, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->size_max_pack);
+    erro = gilson_encode(5, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->size_max_tot);
+    erro = gilson_encode(6, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->configs_bits);
+    erro = gilson_encode(7, GIL_SINGLE, GIL_tUINT16, CAST_GIL data->size_header);
+    erro = gilson_encode(8, GIL_SINGLE, GIL_tUINT16, CAST_GIL data->max_keys);
+    erro = gilson_encode(9, GIL_SINGLE, GIL_tUINT8, CAST_GIL data->multi_map);
     pos_bytes = gilson_encode_end();
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG _encode_header_db::: erro:%i, pos_bytes:%lu\n", erro, pos_bytes);
 #else  // PC
 		printf("DEBUG _encode_header_db::: erro:%i, pos_bytes:%u\n", erro, pos_bytes);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 	update_erro_global(erro);
 
@@ -237,28 +233,28 @@ static int32_t _decode_header_db(header_db *data, const uint8_t *pack)
 	memset(data, 0x00, sizeof(*data));
 
 	erro = gilson_decode_init(pack, &modo);
-    erro = gilson_decode(0, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->versao);
-    erro = gilson_decode(1, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->max_packs);
-    erro = gilson_decode(2, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->code_db);
-    erro = gilson_decode(3, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->check_ids);
-    erro = gilson_decode(4, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->size_max_pack);
-    erro = gilson_decode(5, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->size_max_tot);
-    erro = gilson_decode(6, GSON_SINGLE, GSON_tUINT32, CAST_GIL data->configs_bits);
-    erro = gilson_decode(7, GSON_SINGLE, GSON_tUINT16, CAST_GIL data->size_header);
-    erro = gilson_decode(8, GSON_SINGLE, GSON_tUINT16, CAST_GIL data->max_keys);
-    erro = gilson_decode(9, GSON_SINGLE, GSON_tUINT8, CAST_GIL data->multi_map);
+    erro = gilson_decode(0, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->versao);
+    erro = gilson_decode(1, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->max_packs);
+    erro = gilson_decode(2, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->code_db);
+    erro = gilson_decode(3, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->check_ids);
+    erro = gilson_decode(4, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->size_max_pack);
+    erro = gilson_decode(5, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->size_max_tot);
+    erro = gilson_decode(6, GIL_SINGLE, GIL_tUINT32, CAST_GIL data->configs_bits);
+    erro = gilson_decode(7, GIL_SINGLE, GIL_tUINT16, CAST_GIL data->size_header);
+    erro = gilson_decode(8, GIL_SINGLE, GIL_tUINT16, CAST_GIL data->max_keys);
+    erro = gilson_decode(9, GIL_SINGLE, GIL_tUINT8, CAST_GIL data->multi_map);
 	pos_bytes = gilson_decode_end();
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK || pos_bytes<0)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_GILDB_PRINT_DEBUG erro!=erGILSONDB_OK || pos_bytes<0)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG _decode_header_db::: erro:%i, pos_bytes:%lu\n", erro, pos_bytes);
 #else  // PC
 		printf("DEBUG _decode_header_db::: erro:%i, pos_bytes:%u\n", erro, pos_bytes);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 	update_erro_global(erro);
 
@@ -335,16 +331,16 @@ static int32_t _gilsondb_check_db_init(const uint32_t end_db, header_db *s_gdb)
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG _gilsondb_check_db_init::: erro:%i, end_db:%lu(%lu)\n", erro, end_db, (end_db/4096));
 #else  // PC
 		printf("DEBUG _gilsondb_check_db_init::: erro:%i, end_db:%u(%u)\n", erro, end_db, (end_db/4096));
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 	update_erro_global(erro);
 	return erro;
@@ -569,16 +565,16 @@ static int32_t _gilsondb_statistics(const uint32_t end_db, header_db *s_gdb, uin
 	*size_ultimo_id_ = h.len_pacote;  // tamanho do último pacote
 	*end_ultimo_id_ = end_ultimo_id;  // para 'egDynamicSize'==1, 'id_libre'=='end_ultimo_id'
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG _gilsondb_statistics::: erro:%i, end_db:%lu(%lu), cont_ids:%lu, id_libre:%lu, id_cont_maior:%lu(%lu), id_cont_menor:%lu(%lu)\n", erro, end_db, (end_db/4096), cont_ids, id_libre, id_cont_maior, index_maior, id_cont_menor, index_menor);
 #else  // PC
 		printf("DEBUG _gilsondb_statistics::: erro:%i, end_db:%u(%u), cont_ids:%u, id_libre:%u, id_cont_maior:%u(%u), id_cont_menor:%u(%u)\n", erro, end_db, (end_db/4096), cont_ids, id_libre, id_cont_maior, index_maior, id_cont_menor, index_menor);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 	update_erro_global(erro);
 	return erro;
@@ -587,11 +583,11 @@ static int32_t _gilsondb_statistics(const uint32_t end_db, header_db *s_gdb, uin
 
 
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 
 static void _print_header_db(const header_db *s_gdb, const uint32_t end_db)
 {
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 	printf_DEBUG("DEBUG INFO STRUCT_DB::: end_db:%lu(%lu), versao:%08lx, max_packs:%lu, code_db:%lu, check_ids:%lu, size_max_pack:%lu, configs:0x%08lx, size_header:%lu, max_keys:%lu, erg:%i, ativo:%u\n",
 			end_db, (end_db/4096),
 			s_gdb->versao,
@@ -617,21 +613,21 @@ static void _print_header_db(const header_db *s_gdb, const uint32_t end_db)
 			s_gdb->max_keys,
 			erro_global,
 			flag_s_gilsondb_ativo);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 
 
 }
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 
 int32_t gilsondb_init(void)
 {
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 	return 0;
 #else
 	return mem_init();
-#endif  // #if (TIPO_DEVICE==x)
+#endif  // #if (GILDB_TYPE_DEVICE==x)
 }
 
 
@@ -705,7 +701,7 @@ int32_t gilsondb_create_init(const uint32_t end_db, const uint32_t max_packs, co
 		s_gilsondb.size_header = HEADER_DB;  // crc + header, começa assim e vai incrementando a cada chamada de 'gilsondb_create_add()'
 
 		s_gilsondb.size_max_pack = OFF_PACK_GILSON_DB;  // pois todos pacote independente de quantos bytes terá (se dinamico) sempre vai ter 'OFF_PACK_GILSON_DB' no inicio
-		s_gilsondb.size_max_pack += 8;  // é o offset de indentificação do pacote no modo 'GSON_MODO_FULL' o chamado 'OFFSET_MODO_FULL'
+		s_gilsondb.size_max_pack += 8;  // é o offset de indentificação do pacote no modo 'GIL_MODO_FULL' o chamado 'OFFSET_MODO_FULL'
 
 		/*
 		//s_gilsondb.offset_pack = offset_pack + OFF_INIT_DATA_DB;
@@ -734,21 +730,121 @@ int32_t gilsondb_create_init(const uint32_t end_db, const uint32_t max_packs, co
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 	//_print_header_db(&s_gilsondb, end_db);
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_create_init::: erro:%i, end_db:%lu(%lu), erro_global:%i, ativo:%u\n", erro, end_db, (end_db/4096), erro_global, flag_s_gilsondb_ativo);
 #else  // PC
 		printf("DEBUG gilsondb_create_init::: erro:%i, end_db:%u(%u), erro_global:%i, ativo:%u\n", erro, end_db, (end_db/4096), erro_global, flag_s_gilsondb_ativo);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
 	return erro;
+}
+
+
+static uint16_t check_key_gilsondb(const uint32_t end_db, const uint8_t chave, const uint8_t ibanco)
+{
+	uint32_t endereco=0;
+	uint16_t size_key=0, size_map=0, temp16=0;
+	uint8_t i, tipo1=255, tipo2=255;
+
+	if(ibanco==255)
+	{
+		// sem miltibanco...
+		endereco = HEADER_DB + ((uint16_t)chave * 8);
+		endereco += end_db;
+
+		tipo1 = mem_read_uint8(endereco);
+		tipo2 = mem_read_uint8(endereco+1);
+	}
+	else
+	{
+		// é gravado o mapa completo
+		// size_map = (uint16_t)n_chaves*6*2;  // ====>>>> map[n_chaves][6]
+		// cada linha do mapa = {e_OPER_nome, GIL_SINGLE, GIL_tSTRING, MAX_CARACTERES_UTF8, 0, 0},  // data->nome
+		// 						{chave, tipo1, tipo2, cont_list_a, cont_list_b, cont_list_step}	cada um é uint16_t logo temos 12 bytes offset
+		endereco = end_db + HEADER_DB;
+		for(i=0; i<(ibanco+1); i++)
+		{
+			//mem_read_buff(endereco, 2, &size_map);
+			size_map = mem_read_uint16(endereco);
+			endereco += 2;  // do 'size_map' 16bits
+
+			if(i == ibanco)
+			{
+				endereco += ((uint16_t)chave * 12);
+				temp16 = mem_read_uint16(endereco);
+				if(temp16 == chave)
+				{
+					tipo1 = (uint8_t)mem_read_uint16(endereco+2);
+					tipo2 = (uint8_t)mem_read_uint16(endereco+4);
+				}
+				break;
+			}
+			endereco += size_map;
+		}
+
+	}
+
+	if(tipo1 == GIL_SINGLE)
+	{
+		switch(tipo2)
+		{
+		case GIL_tINT8:
+		case GIL_tUINT8:
+			size_key = 1;
+			break;
+		case GIL_tINT16:
+		case GIL_tUINT16:
+			size_key = 2;
+			break;
+		case GIL_tINT32:
+		case GIL_tUINT32:
+			size_key = 4;
+			break;
+		case GIL_tINT64:
+		case GIL_tUINT64:
+			size_key = 8;
+			break;
+		case GIL_tFLOAT32:
+			size_key = 4;
+			break;
+		case GIL_tFLOAT64:
+			size_key = 8;
+			break;
+		case GIL_tSTRING:
+			//size_key = 1;
+			size_key = GIL_LIMIT_STRING;  // pior caso...
+			break;
+		}
+	}
+
+	/*
+	// vamos calcular em 'off' o tamanho do offset header dessa chave
+	off = s_gilsondb.size_header;  // vai começar em 'HEADER_DB'
+	memcpy(&buf_db[off], &tipo1, 1);
+	off += 1;
+	memcpy(&buf_db[off], &tipo2, 1);
+	off += 1;
+	memcpy(&buf_db[off], &cont_list_a, 2);
+	off += 2;
+	memcpy(&buf_db[off], &cont_list_b, 2);
+	off += 2;
+	memcpy(&buf_db[off], &cont_list_step, 2);
+	off += 2;
+	// sendo assim, para cada chave sabemos que o offset é de 8 bytes
+	// se começa ja com 'HEADER_DB' e nosso 'buf_db[]' vale 'SECTOR_SIZE_MEM'
+	// da para limitar que SECTOR_SIZE_MEM-HEADER_DB / 8 = (4096-64)/8 = 504 = aloca normal os 'LIMIT_GIL_KEYS' 255 chaves
+	*/
+
+	// se retornar 0 entao tem erro...
+	return size_key;
 }
 
 
@@ -788,48 +884,51 @@ int32_t gilsondb_create_add(const uint8_t key, const uint8_t tipo1, const uint8_
 		off += 2;
 		memcpy(&buf_db[off], &cont_list_step, 2);
 		off += 2;
+		// sendo assim, para cada chave sabemos que o offset é de 8 bytes
+		// se começa ja com 'HEADER_DB' e nosso 'buf_db[]' vale 'SECTOR_SIZE_MEM'
+		// da para limitar que SECTOR_SIZE_MEM-HEADER_DB / 8 = (4096-64)/8 = 504 = aloca normal os 'LIMIT_GIL_KEYS' 255 chaves
 
 		s_gilsondb.size_header += (off-s_gilsondb.size_header);
 
 
 		switch(tipo2)
 		{
-		case GSON_tINT8:
-		case GSON_tUINT8:
+		case GIL_tINT8:
+		case GIL_tUINT8:
 			nbytes = 1;
 			break;
-		case GSON_tINT16:
-		case GSON_tUINT16:
+		case GIL_tINT16:
+		case GIL_tUINT16:
 			nbytes = 2;
 			break;
-		case GSON_tINT32:
-		case GSON_tUINT32:
+		case GIL_tINT32:
+		case GIL_tUINT32:
 			nbytes = 4;
 			break;
-		case GSON_tINT64:
-		case GSON_tUINT64:
+		case GIL_tINT64:
+		case GIL_tUINT64:
 			nbytes = 8;
 			break;
-		case GSON_tFLOAT32:
+		case GIL_tFLOAT32:
 			nbytes = 4;
 			break;
-		case GSON_tFLOAT64:
+		case GIL_tFLOAT64:
 			nbytes = 8;
 			break;
-		case GSON_tSTRING:
+		case GIL_tSTRING:
 			nbytes = 1;
 			break;
 		}
 
 		// vamos calcular em 'off' que será o pior caso para cada pacote
-		// lembrando que como é modo==GSON_MODO_FULL salva mais dados...
+		// lembrando que como é modo==GIL_MODO_FULL salva mais dados...
 		off = 1;  // tipo_mux -> tipo1+tipo2
 
-		if(tipo1 == GSON_LIST)
+		if(tipo1 == GIL_LIST)
 		{
 			off += 2;  // salva uint16_t de vezes==cont_list_a
 
-			if(tipo2==GSON_tSTRING)
+			if(tipo2==GIL_tSTRING)
 			{
 				off += nbytes * cont_list_a * cont_list_b;
 				off += cont_list_a;  // para cada string tem 1 bytes do tamanho...
@@ -841,7 +940,7 @@ int32_t gilsondb_create_add(const uint8_t key, const uint8_t tipo1, const uint8_
 				off += nbytes * cont_list_a;
 			}
 		}
-		else if(tipo1 == GSON_MTX2D)
+		else if(tipo1 == GIL_MTX2D)
 		{
 			//off = nbytes * cont_list_a * cont_list_b;
 			off += nbytes * cont_list_a * cont_list_step;
@@ -850,9 +949,9 @@ int32_t gilsondb_create_add(const uint8_t key, const uint8_t tipo1, const uint8_
 			off += 2;  // salva uint16_t de cont_list_b
 			off += 2;  // salva uint16_t de cont_list_step
 		}
-		else  // GSON_SINGLE
+		else  // GIL_SINGLE
 		{
-			if(tipo2==GSON_tSTRING)
+			if(tipo2==GIL_tSTRING)
 			{
 				off += nbytes * cont_list_a;
 				off += 1;  // para cada string tem 1 bytes do tamanho...
@@ -882,19 +981,19 @@ int32_t gilsondb_create_add(const uint8_t key, const uint8_t tipo1, const uint8_
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
-#if (TIPO_DEVICE==0)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+#if (GILDB_TYPE_DEVICE==0)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
 		printf_DEBUG("DEBUG gilsondb_create_add::: erro:%i, key:%lu/%lu, size_header:%lu, size_max_pack:%lu(%u)\n", erro, key, s_gilsondb.max_keys, s_gilsondb.size_header, s_gilsondb.size_max_pack, OFF_PACK_GILSON_DB);
 	}
 #else  // PC
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
 		printf("DEBUG gilsondb_create_add::: erro:%i, key:%u/%u, size_header:%u, size_max_pack:%u(%u)\n", erro, key, s_gilsondb.max_keys, s_gilsondb.size_header, s_gilsondb.size_max_pack, OFF_PACK_GILSON_DB);
 	}
-#endif  // #if (TIPO_DEVICE==1)
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -917,9 +1016,9 @@ int32_t gilsondb_create_add_map(const uint16_t n_chaves, const uint16_t map[][6]
 	cont_list_step = map[5] (obrigatório mesmo que não utilizado)
 	*/
 
-	if(n_chaves > LIMIT_GSON_KEYS)
+	if(n_chaves > GIL_LIMIT_KEYS)
 	{
-		return erGSON_LIMKEY;
+		return erGIL_LIMKEY;
 	}
 
 	for(i=0; i<n_chaves; i++)
@@ -956,8 +1055,6 @@ int32_t gilsondb_create_end(const uint32_t end_db)
 			memcpy(buf_db, &crc_header, 4);
 
 			erro = mem_write_buff(end_db, buf_db, s_gilsondb.size_header);
-
-
 		}
 
 		flag_s_gilsondb_ativo = 0;
@@ -967,15 +1064,15 @@ int32_t gilsondb_create_end(const uint32_t end_db)
 		erro = erGILSONDB_OCUPADO;
 	}
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 	_print_header_db(&s_gilsondb, end_db);
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_create_end::: erro:%i, end_db:%lu(%lu)\n", erro, end_db, (end_db/4096));
 #else  // PC
 		printf("DEBUG gilsondb_create_end::: erro:%i, end_db:%u(%u)\n", erro, end_db, (end_db/4096));
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
 
 	/*
@@ -986,7 +1083,7 @@ int32_t gilsondb_create_end(const uint32_t end_db)
 	_print_header_db(&s_gilsondb, end_db);
 	*/
 
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 	memset(&s_gilsondb, 0x00, sizeof(s_gilsondb));
 
@@ -1023,12 +1120,12 @@ int32_t gilsondb_add(const uint32_t end_db, uint8_t *data)
 		// tamanho do pacote novo, que está alocado na 'data'!!!
 		memcpy(&h.len_pacote, &data[e_len_pacote], 2);
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 		// debug ----------------------------------------------------
 		memcpy(&h.crc, &data[e_crc], 4);  // debug
 		crc2 = gilsondb_crc(0xffffffff, &data[e_init_check], h.len_pacote-e_init_check_dat);
 		//-----------------------------------------------------------
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
@@ -1070,12 +1167,12 @@ int32_t gilsondb_add(const uint32_t end_db, uint8_t *data)
 		/*
 		// tamanho do pacote novo, que está alocado na 'data'!!!
 		memcpy(&len_pacote, &data[8], 4);
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 		// debug ----------------------------------------------------
 		memcpy(&crc1, &data[12], 4);  // debug
 		crc2 = gilsondb_crc(0xffffffff, &data[OFF_PACK_GILSON_DB], len_pacote);
 		//-----------------------------------------------------------
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 		 */
 
 		if(h.len_pacote==0 || h.len_pacote>(s_gdb.size_max_pack-OFF_PACK_GILSON_DB))
@@ -1131,16 +1228,16 @@ int32_t gilsondb_add(const uint32_t end_db, uint8_t *data)
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_add::: erro:%i, end_db:%lu(%lu), id:%lu, status_id:%lu, id_cont:%lu, len_pacote:%u, crc:%lu|%lu, endereco:%lu, size_max_pack:%lu\n", erro, end_db, (end_db/4096), id_libre, h.status_id, id_cont, h.len_pacote, h.crc, crc2, endereco, s_gdb.size_max_pack);
 #else  // PC
 		printf("DEBUG gilsondb_add::: erro:%i, end_db:%u(%u), id:%u, status_id:%u, id_cont:%u, len_pacote:%u, crc:%u|%u, endereco:%u, size_max_pack:%u\n", erro, end_db, (end_db/4096), id_libre, h.status_id, id_cont, h.len_pacote, h.crc, crc2, endereco, s_gdb.size_max_pack);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -1255,16 +1352,16 @@ int32_t gilsondb_update(const uint32_t end_db, const uint32_t id, uint8_t *data)
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_update::: erro:%i, end_db:%lu(%lu), id:%lu, status_id:%lu, id_cont:%lu, endereco:%lu\n", erro, end_db, (end_db/4096), id, h.status_id, id_cont, endereco);
 #else  // PC
 		printf("DEBUG gilsondb_update::: erro:%i, end_db:%u(%u), id:%u, status_id:%u, id_cont:%u, endereco:%u\n", erro, end_db, (end_db/4096), id, h.status_id, id_cont, endereco);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -1349,16 +1446,16 @@ int32_t gilsondb_del(const uint32_t end_db, const uint32_t id)
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_del::: erro:%i, end_db:%lu(%lu), id:%lu, status_id:%lu, endereco:%lu\n", erro, end_db, (end_db/4096), id, status_id, endereco);
 #else  // PC
 		printf("DEBUG gilsondb_del::: erro:%i, end_db:%u(%u), id:%u, status_id:%u, endereco:%u\n", erro, end_db, (end_db/4096), id, status_id, endereco);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -1376,10 +1473,10 @@ int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *da
 	header_db s_gdb;
 	header_data h={0};
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 	uint32_t ts[6]={0};
 	ts[0] = millis();
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 	erro = _gilsondb_check_db_init(end_db, &s_gdb);
 
@@ -1422,17 +1519,17 @@ int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *da
 
 			for(i=j; i<s_gdb.max_packs; i++)
 			{
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 				ts[4] = millis();
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 				// análise do configs...
 				erro = mem_read_buff(endereco, HEADER_GILSON_DB_DATA, b);
 				_decode_header_data(b, &h);
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 				ts[5] += (millis() - ts[4]);
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 				if(h.check_ids == s_gdb.check_ids)
 				{
@@ -1452,16 +1549,16 @@ int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *da
 						if(id == i)
 						{
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 							ts[2] = millis();
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 							// assume que o buffer 'data' vai conseguir alocar os dados resgatados!!!!
 							erro = mem_read_buff(endereco, h.len_pacote, data);
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 							ts[3] = millis();
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 							crc2 = gilsondb_crc(0xffffffff, &data[e_init_check_dat], (h.len_pacote-e_init_check_dat));
 
@@ -1561,17 +1658,17 @@ int32_t gilsondb_read_full(const uint32_t end_db, const uint32_t id, uint8_t *da
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 	ts[1] = millis();
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_read::: erro:%i, end_db:%lu(%lu), id:%lu, valid:%lu, id_cont:%lu, len_pacote:%u, crc:%lu|%lu, endereco:%lu, ts:%lu, tsd:%lu, tx:%lu\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco, (ts[1]-ts[0]), (ts[3]-ts[2]), ts[5]);
 #else  // PC
 		printf("DEBUG gilsondb_read::: erro:%i, end_db:%u(%u), id:%u, valid:%u, id_cont:%u, len_pacote:%u, crc:%u|%u, endereco:%u, ts:%u, tsd:%u, tx:%u\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco, (ts[1]-ts[0]), (ts[3]-ts[2]), ts[5]);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -1630,17 +1727,17 @@ int32_t gilsondb_check(const uint32_t end_db, const uint32_t max_packs, const ui
 		}
 	}
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
 		_print_header_db(&s_gdb, end_db);
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_check::: erro:%i, end_db:%lu(%lu), max_size:%lu|%lu\n", erro, end_db, (end_db/4096), max_size, max2);
 #else  // PC
 		printf("DEBUG gilsondb_check::: erro:%i, end_db:%u(%u), max_size:%u|%u\n", erro, end_db, (end_db/4096), max_size, max2);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -1755,16 +1852,16 @@ int32_t gilsondb_get_valids(const uint32_t end_db, uint32_t *cont_ids, uint16_t 
 
 	*cont_ids = cont;
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_get_valids::: erro:%i, end_db:%lu(%lu), cont:%lu\n", erro, end_db, (end_db/4096), cont);
 #else  // PC
 		printf("DEBUG gilsondb_get_valids::: erro:%i, end_db:%u(%u), cont:%u\n", erro, end_db, (end_db/4096), cont);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -1855,16 +1952,16 @@ int32_t gilsondb_get_configs(const uint32_t end_db, const uint8_t tipo, uint32_t
 		}
 	}
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_get_configs::: tipo:%u, erro:%i, end_db:%lu(%lu)\n", tipo, erro, end_db, (end_db/4096));
 #else  // PC
 		printf("DEBUG gilsondb_get_configs::: tipo:%u, erro:%i, end_db:%u(%u)\n", tipo, erro, end_db, (end_db/4096));
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -1890,7 +1987,7 @@ int32_t gilsondb_get_info(const uint32_t end_db, char *sms, const char *nome)
 	}
 
 
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 	i = sprintf(sms, "---------------------------------\nBANCO:%s, END:%lu(%lu), VERSAO:%08lx, erro:%i\n"
 			"\tMAX_PACKS:%lu, OFFSET_PACK:%lu(%u), CODE:%lu, max_size:%lu(%lu), check_ids:%lu, "
 			"configs:0x%08lx, multi_map:%u, OFFSET_HEAD:%u\n"
@@ -1908,14 +2005,14 @@ int32_t gilsondb_get_info(const uint32_t end_db, char *sms, const char *nome)
 			s_gdb.max_packs, s_gdb.size_max_pack, OFF_PACK_GILSON_DB, s_gdb.code_db, max2, s_gdb.size_max_tot, s_gdb.check_ids,
 			s_gdb.configs_bits, s_gdb.multi_map, s_gdb.size_header,
 			cont_ids, id_libre, id_cont);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 
 	return i;
 }
 
 
 
-#if (USO_DEBUG_LIB==1 && TIPO_DEVICE==1)
+#if (GILDB_DEBUG_LIB==1 && GILDB_TYPE_DEVICE==1)
 
 int gilsondb_info_deep(const uint32_t end_db, const char *nome_banco)
 {
@@ -2099,17 +2196,17 @@ int gilsondb_info_deep(const uint32_t end_db, const char *nome_banco)
 	return 0;
 }
 
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 
 //=================================================================================================================
 //=================================================================================================================
-// ENCODES e DECODES baseados no gilson modo=GSON_MODO_FULL
+// ENCODES e DECODES baseados no gilson modo=GIL_MODO_FULL
 
 int32_t gilsondb_encode_init(uint8_t *pack, const uint16_t size_max_pack)
 {
-	return gilson_encode_init(GSON_MODO_FULL, pack, size_max_pack);
+	return gilson_encode_init(GIL_MODO_FULL, pack, size_max_pack);
 }
 
 
@@ -2159,22 +2256,22 @@ int32_t gilsondb_encode_mapdin(const uint16_t *map, ...)
 
 	valor = va_arg(argptr, uint8_t *);
 
-	if(map[1] == GSON_SINGLE)
+	if(map[1] == GIL_SINGLE)
 	{
-		if(map[2] == GSON_tSTRING)
+		if(map[2] == GIL_tSTRING)
 		{
 			cont_list_a = (uint16_t)va_arg(argptr, int);
 		}
 	}
-	else if(map[1] == GSON_LIST)
+	else if(map[1] == GIL_LIST)
 	{
 		cont_list_a = (uint16_t)va_arg(argptr, int);
-		if(map[2] == GSON_tSTRING)
+		if(map[2] == GIL_tSTRING)
 		{
 			cont_list_b = (uint16_t)va_arg(argptr, int);
 		}
 	}
-	else if(map[1] == GSON_MTX2D)
+	else if(map[1] == GIL_MTX2D)
 	{
 		cont_list_a = (uint16_t)va_arg(argptr, int);
 		cont_list_b = (uint16_t)va_arg(argptr, int);
@@ -2216,7 +2313,7 @@ int32_t gilsondb_decode_init(const uint8_t *pack)
 
 	if(erro==0)
 	{
-		if(modo != GSON_MODO_FULL)
+		if(modo != GIL_MODO_FULL)
 		{
 			erro = erGILSONDB_MODO;
 		}
@@ -2345,7 +2442,7 @@ int32_t gilsondb_create_multi_init(const uint32_t end_db, const uint32_t max_pac
 		s_gilsondb.size_header = HEADER_DB;  // crc + header, começa assim e vai incrementando a cada chamada de 'gilsondb_create_add()'
 
 		s_gilsondb.size_max_pack = OFF_PACK_GILSON_DB;  // pois todos pacote independente de quantos bytes terá (se dinamico) sempre vai ter 'OFF_PACK_GILSON_DB' no inicio
-		s_gilsondb.size_max_pack += 1;  // é o offset de indentificação do pacote no modo 'GSON_MODO_ZIP' o chamado 'OFFSET_MODO_ZIP'
+		s_gilsondb.size_max_pack += 1;  // é o offset de indentificação do pacote no modo 'GIL_MODO_ZIP' o chamado 'OFFSET_MODO_ZIP'
 	}
 	else
 	{
@@ -2354,17 +2451,17 @@ int32_t gilsondb_create_multi_init(const uint32_t end_db, const uint32_t max_pac
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 	//_print_header_db(&s_gilsondb, end_db);
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_create_multi_init::: erro:%i, end_db:%lu(%lu), erro_global:%i, ativo:%u\n", erro, end_db, (end_db/4096), erro_global, flag_s_gilsondb_ativo);
 #else  // PC
 		printf("DEBUG gilsondb_create_multi_init::: erro:%i, end_db:%u(%u), erro_global:%i, ativo:%u\n", erro, end_db, (end_db/4096), erro_global, flag_s_gilsondb_ativo);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -2390,9 +2487,9 @@ int32_t gilsondb_create_multi_add_map(const uint8_t i_banco, const uint16_t n_ch
 		cont_list_step = map[5] (se for o caso... ou 0)
 		*/
 
-		if(n_chaves > LIMIT_GSON_KEYS)
+		if(n_chaves > GIL_LIMIT_KEYS)
 		{
-			erro = erGSON_LIMKEY;
+			erro = erGIL_LIMKEY;
 			goto deu_erro;
 		}
 
@@ -2441,37 +2538,37 @@ int32_t gilsondb_create_multi_add_map(const uint8_t i_banco, const uint16_t n_ch
 		{
 			switch(map[i][2])
 			{
-			case GSON_tINT8:
-			case GSON_tUINT8:
+			case GIL_tINT8:
+			case GIL_tUINT8:
 				nbytes = 1;
 				break;
-			case GSON_tINT16:
-			case GSON_tUINT16:
+			case GIL_tINT16:
+			case GIL_tUINT16:
 				nbytes = 2;
 				break;
-			case GSON_tINT32:
-			case GSON_tUINT32:
+			case GIL_tINT32:
+			case GIL_tUINT32:
 				nbytes = 4;
 				break;
-			case GSON_tINT64:
-			case GSON_tUINT64:
+			case GIL_tINT64:
+			case GIL_tUINT64:
 				nbytes = 8;
 				break;
-			case GSON_tFLOAT32:
+			case GIL_tFLOAT32:
 				nbytes = 4;
 				break;
-			case GSON_tFLOAT64:
+			case GIL_tFLOAT64:
 				nbytes = 8;
 				break;
-			case GSON_tSTRING:
+			case GIL_tSTRING:
 				nbytes = 1;
 				break;
 			}
 
 			// vamos calcular em 'off' que será o pior caso para cada pacote
-			if(map[i][1] == GSON_LIST)
+			if(map[i][1] == GIL_LIST)
 			{
-				if(map[i][2]==GSON_tSTRING)
+				if(map[i][2]==GIL_tSTRING)
 				{
 					off = nbytes * map[i][3] * map[i][4];
 					off += map[i][3];  // para cada string tem 1 bytes do tamanho...
@@ -2481,14 +2578,14 @@ int32_t gilsondb_create_multi_add_map(const uint8_t i_banco, const uint16_t n_ch
 					off = nbytes * map[i][3];
 				}
 			}
-			else if(map[i][1] == GSON_MTX2D)
+			else if(map[i][1] == GIL_MTX2D)
 			{
 				//off = nbytes * cont_list_a * cont_list_b;
 				off = nbytes * map[i][3] * map[i][4];
 			}
-			else  // GSON_SINGLE
+			else  // GIL_SINGLE
 			{
-				if(map[i][2]==GSON_tSTRING)
+				if(map[i][2]==GIL_tSTRING)
 				{
 					off = nbytes * map[i][3];
 					off += 1;  // para cada string tem 1 bytes do tamanho...
@@ -2519,19 +2616,19 @@ int32_t gilsondb_create_multi_add_map(const uint8_t i_banco, const uint16_t n_ch
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
-#if (TIPO_DEVICE==0)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+#if (GILDB_TYPE_DEVICE==0)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
 		printf_DEBUG("DEBUG gilsondb_create_multi_add_map::: erro:%i, key:%u/%u, size_header:%lu, size_max_pack:%lu(%u)\n", erro, n_chaves, s_gilsondb.max_keys, s_gilsondb.size_header, s_gilsondb.size_max_pack, OFF_PACK_GILSON_DB);
 	}
 #else  // PC
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
 		printf("DEBUG gilsondb_create_multi_add_map::: erro:%i, key:%u/%u, size_header:%u, size_max_pack:%u(%u)\n", erro, n_chaves, s_gilsondb.max_keys, s_gilsondb.size_header, s_gilsondb.size_max_pack, OFF_PACK_GILSON_DB);
 	}
-#endif  // #if (TIPO_DEVICE==1)
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -2577,15 +2674,15 @@ int32_t gilsondb_create_multi_end(const uint32_t end_db)
 		erro = erGILSONDB_OCUPADO;
 	}
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 	_print_header_db(&s_gilsondb, end_db);
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_create_multi_end::: erro:%i, end_db:%lu(%lu)\n", erro, end_db, (end_db/4096));
 #else  // PC
 		printf("DEBUG gilsondb_create_multi_end::: erro:%i, end_db:%u(%u)\n", erro, end_db, (end_db/4096));
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
 
 	/*
@@ -2596,7 +2693,7 @@ int32_t gilsondb_create_multi_end(const uint32_t end_db)
 	_print_header_db(&s_gilsondb, end_db);
 	*/
 
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 	memset(&s_gilsondb, 0x00, sizeof(s_gilsondb));
 
@@ -2627,12 +2724,12 @@ int32_t gilsondb_multi_add(const uint32_t end_db, const uint8_t i_banco, uint8_t
 		// tamanho do pacote novo, que está alocado na 'data'!!!
 		memcpy(&h.len_pacote, &data[e_len_pacote], 2);
 
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 		// debug ----------------------------------------------------
 		memcpy(&h.crc, &data[e_crc], 4);  // debug
 		crc2 = gilsondb_crc(0xffffffff, &data[e_init_check], h.len_pacote-e_init_check_dat);
 		//-----------------------------------------------------------
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 		if(i_banco >= s_gdb.multi_map)
@@ -2685,12 +2782,12 @@ int32_t gilsondb_multi_add(const uint32_t end_db, const uint8_t i_banco, uint8_t
 		/*
 		// tamanho do pacote novo, que está alocado na 'data'!!!
 		memcpy(&len_pacote, &data[8], 4);
-#if (USO_DEBUG_LIB==1)
+#if (GILDB_DEBUG_LIB==1)
 		// debug ----------------------------------------------------
 		memcpy(&crc1, &data[12], 4);  // debug
 		crc2 = gilsondb_crc(0xffffffff, &data[OFF_PACK_GILSON_DB], len_pacote);
 		//-----------------------------------------------------------
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 		*/
 
 		if(h.len_pacote==0 || h.len_pacote>(s_gdb.size_max_pack-OFF_PACK_GILSON_DB))
@@ -2746,16 +2843,16 @@ int32_t gilsondb_multi_add(const uint32_t end_db, const uint8_t i_banco, uint8_t
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_multi_add::: erro:%i, end_db:%lu(%lu), id:%lu, status_id:%lu, id_cont:%lu, len_pacote:%u, crc:%lu|%lu, endereco:%lu, i_banco:%u|%u\n", erro, end_db, (end_db/4096), id_libre, h.status_id, id_cont, h.len_pacote, h.crc, crc2, endereco);
 #else  // PC
 		printf("DEBUG gilsondb_multi_add::: erro:%i, end_db:%u(%u), id:%u, status_id:%u, id_cont:%u, len_pacote:%u, crc:%u|%u, endereco:%u, i_banco:%u|%u\n", erro, end_db, (end_db/4096), id_libre, h.status_id, id_cont, h.len_pacote, h.crc, crc2, endereco);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -2848,16 +2945,16 @@ int32_t gilsondb_get_multi_valids(const uint32_t end_db, uint32_t *cont_ids, uin
 
 	*cont_ids = cont;
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_get_valids::: erro:%i, end_db:%lu(%lu), cont:%lu\n", erro, end_db, (end_db/4096), cont);
 #else  // PC
 		printf("DEBUG gilsondb_get_valids::: erro:%i, end_db:%u(%u), cont:%u\n", erro, end_db, (end_db/4096), cont);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -2920,16 +3017,16 @@ int32_t gilsondb_get_multi_ibanco_valids(const uint32_t end_db, uint32_t *cont_i
 					valid = (uint8_t)h.status_id&0xff;
 
 /*
-#if (USO_DEBUG_LIB==1)
-if(PRINT_DEBUG==1)
+#if (GILDB_DEBUG_LIB==1)
+if(GILDB_PRINT_DEBUG==1)
 {
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 					printf_DEBUG("DEBUG gilsondb_get_multi_ibanco_valids loop::: erro:%i, endereco:%lu, i:%lu/%lu, valid:%u, banco:%u==%u\n", erro, endereco, i, cont, valid, h.i_banco, ibanco);
 #else  // PC
 					printf("DEBUG gilsondb_get_multi_ibanco_valids loop::: erro:%i, endereco:%u, i:%u/%u, valid:%u, banco:%u==%u\n", erro, endereco, i, cont, valid, h.i_banco, ibanco);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 }
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 */
 
 					if(valid==1)  // 'valid==1' cuidar pois pode haver 0 ou 255 indica que está vazio...
@@ -2964,16 +3061,16 @@ if(PRINT_DEBUG==1)
 
 	*cont_ids = cont;
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_get_multi_ibanco_valids::: erro:%i, end_db:%lu(%lu), cont:%lu/%lu, ibanco:%u, endereco:%lu\n", erro, end_db, (end_db/4096), i, cont, ibanco, endereco);
 #else  // PC
 		printf("DEBUG gilsondb_get_multi_ibanco_valids::: erro:%i, end_db:%u(%u), cont:%u/%u, ibanco:%u, endereco:%u\n", erro, end_db, (end_db/4096), i, cont, ibanco, endereco);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -3066,16 +3163,16 @@ int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del)
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_del::: erro:%i, end_db:%lu(%lu), id:%lu, status_id:%lu, endereco:%lu\n", erro, end_db, (end_db/4096), id, h.status_id, endereco);
 #else  // PC
 		printf("DEBUG gilsondb_del::: erro:%i, end_db:%u(%u), id:%u, status_id:%u, endereco:%u\n", erro, end_db, (end_db/4096), id, h.status_id, endereco);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
@@ -3085,6 +3182,7 @@ int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del)
 
 
 // OBS: limpar 'uint8_t *valor' externamente e antes de usar isso, ja vi problemas
+// fica bugado quando é para multibancos, salvo se tiver 1 banco somente no modo 'egDynamicSize' ou fazer filtro por tipo de banco
 int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_t chave, uint8_t *data, uint8_t *valor)
 {
 	uint32_t endereco=0, crc2=0, id_cont=0, i=0, j=0, end_size_id=0;
@@ -3274,20 +3372,328 @@ int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_
 
 	deu_erro:
 
-#if (USO_DEBUG_LIB==1)
-	if(PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
 	{
-#if (TIPO_DEVICE==0)
+#if (GILDB_TYPE_DEVICE==0)
 		printf_DEBUG("DEBUG gilsondb_read_key::: erro:%i, end_db:%lu(%lu), id:%lu, valid:%lu, id_cont:%lu, len_pacote:%u, crc:%lu|%lu, endereco:%lu\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco);
 #else  // PC
 		printf("DEBUG gilsondb_read_key::: erro:%i, end_db:%u(%u), id:%u, valid:%u, id_cont:%u, len_pacote:%u, crc:%u|%u, endereco:%u\n", erro, end_db, (end_db/4096), id, valid, id_cont, h.len_pacote, h.crc, crc2, endereco);
-#endif  // #if (TIPO_DEVICE==1)
+#endif  // #if (GILDB_TYPE_DEVICE==1)
 	}
-#endif  // #if (USO_DEBUG_LIB==1)
+#endif  // #if (GILDB_DEBUG_LIB==1)
 
 
 	update_erro_global(erro);
 	return erro;
 }
 
+
+static uint8_t compara_chave_valor(const uint16_t size_key, const uint8_t *alvo, const uint8_t *data)
+{
+	uint16_t i;
+	uint8_t valid = 0;
+
+	if(size_key != GIL_LIMIT_STRING)
+	{
+		// 1 a 8 bytes
+		for(i=0; i<size_key; i++)
+		{
+			// tem como otimizar isso!!!!! por favorrrr
+			if((uint8_t)alvo[i] != (uint8_t)data[i])
+			{
+				break;
+			}
+		}
+		if(i==size_key)
+		{
+			valid=1;
+		}
+	}
+	else
+	{
+		// 'alvo' é uma string... logo tem que ter o "\0"
+		i=0;
+		valid=1;
+		// Percorre até encontrar o \0
+		while((uint8_t)alvo[i] != '\0')
+		{
+			if((uint8_t)alvo[i] != (uint8_t)data[i])
+			{
+				valid=0;
+				break;
+			}
+			i++;
+		}
+
+	}
+
+	return valid;
+}
+
+
+// vai retornar lista de ids em 'valids' que encontrar da 'chave' que contem o 'valor' desejado e 'data' é buffer que aloca o pacote gilson completo
+// só funciona para chave com 'tipo1 == GIL_SINGLE', por que é o conceito de coluna de uma tabela nao desejar salvar uma lista/matriz dentro, não é um boa prática
+static int32_t _gilsondb_select(const uint32_t end_db, const uint8_t ibanco, uint32_t *cont_ids, uint16_t *valids, const uint8_t chave, uint8_t *data, uint8_t *valor)
+{
+	uint32_t endereco, i, cont=0, crc2=0;
+	int32_t erro=erGILSONDB_OK, pos_bytes = 0;
+	uint16_t size_key=0;
+	uint8_t valid=0;
+	uint8_t b[HEADER_GILSON_DB_DATA];
+	header_db s_gdb;
+	header_data h={0};
+
+	erro = _gilsondb_check_db_init(end_db, &s_gdb);
+
+	// OBS: nao faz validacao crc de cada pacote!!!
+
+	if(erro==erGILSONDB_OK)
+	{
+		//================================================================================================================================================
+		//================================================================================================================================================
+		if(_bitRead(s_gdb.configs_bits, egDynamicSize)==1)
+		{
+			// s_gdb.multi_map = nao importa
+
+			// vamos fazer uma busca linear no banco até chegar no id alvo
+			endereco = s_gdb.size_header;  // 0 * s_gdb->size_max_pack + s_gdb->size_header
+
+			if(_bitRead(s_gdb.configs_bits, egMapSizeIDs)==1)
+			{
+				endereco += (s_gdb.max_packs*4);
+				// como aqui vamos varrer todos linearmente... entao nao vou utilizar o header_size_ids... somente pula offset dele
+			}
+
+			endereco += end_db;
+
+			for(i=0; i<s_gdb.max_packs; i++)
+			{
+				// análise do configs...
+				erro = mem_read_buff(endereco, HEADER_GILSON_DB_DATA, b);
+				_decode_header_data(b, &h);
+
+				if(s_gdb.check_ids == h.check_ids)
+				{
+					endereco += OFF_PACK_GILSON_DB;
+
+					if(h.len_pacote==0 || h.len_pacote>(s_gdb.size_max_pack-OFF_PACK_GILSON_DB))
+					{
+						erro=erGILSONDB_28;
+						break;
+					}
+
+					valid = (uint8_t)h.status_id&0xff;
+
+					if(valid==1)  // 'valid==1' cuidar pois pode haver 0 ou 255 indica que está vazio...
+					{
+						if(h.i_banco == ibanco)
+						{
+							// vamos em busca da chave desejada e depois verificar se tem a busca de interesse
+							//----------------------------------------------------------------------------------------------------------
+							// assume que o buffer 'data' vai conseguir alocar os dados resgatados!!!!
+							erro = mem_read_buff(endereco, h.len_pacote, data);
+
+							crc2 = gilsondb_crc(0xffffffff, &data[e_init_check_dat], (h.len_pacote-e_init_check_dat));
+
+							if(h.crc == crc2)
+							{
+								if(chave >= h.tot_chaves)
+								{
+									erro=erGILSONDB_49;
+									break;
+								}
+
+								size_key = check_key_gilsondb(end_db, chave, ibanco);
+								if(size_key==0)
+								{
+									erro=erGILSONDB_60;
+									break;
+								}
+
+								// vamos usar 'buf_db[]' para alocar a data... e como não é permitido listas/matrizes... entao o pior caso é string de 'LIMIT_GIL_STRING'
+								memset(buf_db, 0x00, size_key+1);
+								erro = gilsondb_decode_init(data);
+								erro = gilson_decode_data_full(chave, buf_db);
+								pos_bytes = gilsondb_decode_end();
+
+								valid = compara_chave_valor(size_key, valor, buf_db);
+
+								if(valid)
+								{
+									valids[cont]=i;
+									cont+=1;
+								}
+
+								//printf("aaaaaaaaaaaaaa i:%u, size_key:%u, chave:%u, valid:%u, valor:%u, buf_db:%u\n", i, size_key, chave, valid, (uint8_t)valor[0], buf_db[0]);
+
+
+								if(pos_bytes<0 || erro!=0)
+								{
+									erro=erGILSONDB_50;
+								}
+
+								// tudo certo e achamos nosso id a alocamos a data em 'data'
+								//break;
+							}
+							else
+							{
+								erro=erGILSONDB_51;
+								break;
+							}
+							//----------------------------------------------------------------------------------------------------------
+						}
+						//valids[cont]=i;
+						//cont+=1;
+
+						endereco += h.len_pacote;
+						// resulta no endereço do proximo id
+					}
+					else
+					{
+						// para pois ja temos problema logo vamos indicar que é um id libre e ai paramos por aqui
+						break;
+					}
+				}
+				else
+				{
+					// para pois ja temos problema logo vamos indicar que é um id libre e ai paramos por aqui
+					break;
+				}
+			}
+		}
+		//================================================================================================================================================
+		//================================================================================================================================================
+		else
+		{
+			for(i=0; i<s_gdb.max_packs; i++)
+			{
+				endereco = i * s_gdb.size_max_pack + s_gdb.size_header;
+				endereco += end_db;
+
+				erro = mem_read_buff(endereco, HEADER_GILSON_DB_DATA, b);
+				_decode_header_data(b, &h);
+
+				if(s_gdb.check_ids == h.check_ids)
+				{
+					// validar os dados via crc????
+
+					valid = (uint8_t)h.status_id&0xff;
+
+					//printf("valid:%u\n", valid);
+					if(valid==1)  // 'valid==1' cuidar pois pode haver 0 ou 255 indica que está vazio...
+					{
+						// vamos em busca da chave desejada e depois verificar se tem a busca de interesse
+						//----------------------------------------------------------------------------------------------------------
+						endereco += OFF_PACK_GILSON_DB;
+
+						if(h.len_pacote==0 || h.len_pacote>(s_gdb.size_max_pack-OFF_PACK_GILSON_DB))
+						{
+							erro=erGILSONDB_55;
+							break;
+						}
+
+						// assume que o buffer 'data' vai conseguir alocar os dados resgatados!!!!
+						erro = mem_read_buff(endereco, h.len_pacote, data);
+
+						crc2 = gilsondb_crc(0xffffffff, &data[e_init_check_dat], (h.len_pacote-e_init_check_dat));
+
+						if(h.crc == crc2)
+						{
+							//valid = (uint8_t)h.status_id&0xff;
+							//id_cont = (h.status_id>>8)&0xffffff;
+							// validar o 'valid'?????
+
+							if(chave >= h.tot_chaves)
+							{
+								erro=erGILSONDB_56;
+								break;
+							}
+
+							size_key = check_key_gilsondb(end_db, chave, 255);  // nao é multi banco
+							if(size_key==0)
+							{
+								erro=erGILSONDB_60;
+								break;
+							}
+
+
+
+							// vamos usar 'buf_db[]' para alocar a data... e como não é permitido listas/matrizes... entao o pior caso é string de 'LIMIT_GIL_STRING'
+							memset(buf_db, 0x00, size_key+1);
+							erro = gilsondb_decode_init(data);
+							erro = gilson_decode_data_full(chave, buf_db);
+							pos_bytes = gilsondb_decode_end();
+
+							valid = compara_chave_valor(size_key, valor, buf_db);
+
+							if(valid)
+							{
+								valids[cont]=i;
+								cont+=1;
+							}
+
+							//printf("i:%u, size_key:%u, chave:%u, valid:%u, valor:%u, buf_db:%u\n", i, size_key, chave, valid, (uint8_t)valor[0], buf_db[0]);
+
+							/*
+							// em 'valor' temos a variável de comparação
+							ou usar 'buf_db[]' ou tem que passar outro paramentro...
+							e fazer a decodificacao para saber qual o tipo1 e tipo2 da chave... tem isso no header do banco...
+							ou passar para uma funcao que valida tipo e compara data...
+							e aqui só retorna um 0 ou 1 para saber se vamos add no 'valids[cont]=i;'
+							*/
+
+							if(pos_bytes<0 || erro!=0)
+							{
+								erro=erGILSONDB_57;
+								break;
+							}
+						}
+						else
+						{
+							erro=erGILSONDB_58;
+							break;
+						}
+						//----------------------------------------------------------------------------------------------------------
+						//valids[cont]=i;
+						//cont+=1;
+					}
+				}
+			}
+		}
+		//================================================================================================================================================
+		//================================================================================================================================================
+	}
+
+	*cont_ids = cont;
+
+#if (GILDB_DEBUG_LIB==1)
+	if(GILDB_PRINT_DEBUG==1 || erro!=erGILSONDB_OK)
+	{
+#if (GILDB_TYPE_DEVICE==0)
+		printf_DEBUG("DEBUG gilsondb_get_valids::: erro:%i, end_db:%lu(%lu), cont:%lu\n", erro, end_db, (end_db/4096), cont);
+#else  // PC
+		printf("DEBUG gilsondb_get_valids::: erro:%i, end_db:%u(%u), cont:%u\n", erro, end_db, (end_db/4096), cont);
+#endif  // #if (GILDB_TYPE_DEVICE==1)
+	}
+#endif  // #if (GILDB_DEBUG_LIB==1)
+
+
+	update_erro_global(erro);
+	return erro;
+}
+
+
+
+int32_t gilsondb_select(const uint32_t end_db, uint32_t *cont_ids, uint16_t *valids, const uint8_t chave, uint8_t *data, uint8_t *valor)
+{
+	return _gilsondb_select(end_db, 0, cont_ids, valids, chave, data, valor);
+}
+
+
+// para bancos multi
+int32_t gilsondb_multi_select(const uint32_t end_db, const uint8_t ibanco, uint32_t *cont_ids, uint16_t *valids, const uint8_t chave, uint8_t *data, uint8_t *valor)
+{
+	return _gilsondb_select(end_db, ibanco, cont_ids, valids, chave, data, valor);
+}
 

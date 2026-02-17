@@ -9,40 +9,20 @@
 #define SRC_GILSON_DB_GILSON_DB_H_
 
 /*
-
  ============================================================================
  Name			: gilsondb_c
  Author			: matheus j. mella
- Version		: 0.57
- Date			: 22/11/25
+ Version		: 0.58
+ Date			: 17/02/26
  Description 	: biblioteca 'gilson_db'
  GitHub			: https://github.com/casimirdes/gilson_db
  ============================================================================
-
-
-100% baseado no "neide_db" e "gilson"
-
-gilson_db = banco de dados com giison
-- no estilo de tabelas
-- com colunas prefixadas no formato gilson
-- limite de 256 colunas
-- limite de string de 256 caracteres (utf-8)
-- tem um tamanho de linhas predefinido
-- controle de status do banco, validação e tratamento de erros em todas as operações
-- toda linha terá um CRC e um identificador auto incremental
-- header só modifica uma vez quando é criado a tabela
-- é possível excluir/deletar um id/linha porem mantem o id original mas inativa a linha
-- é possivel ativar a linha novamente e entao edita-la para reutilizar
-- os pacotes de gilson são salvos no modo 'GSON_MODO_FULL'
-- OFF_PACK_GILSON_DB=9  // status_id + check_ids (tipo uint32_t) + i_banco( 1byte para multi bancos)
-
-
-- inicialmente sem suporte a mudança/alteração de formato de tabela ja criada
-- cada 'nome de tabela' é um endereço de onde vai ser o ponto inicial na memória logo sempre vai gravar na mesma posição
-- não tem tratamento de nivelamento de desgaste de setores, isto é, não escreve dinamicamente em multi setores
-- não tem nada a ver com um sistema de arquivos
-
  */
+
+// fins de debug
+#define GILDB_TYPE_DEVICE		1  // 0=microcontrolador, 1=PC
+#define GILDB_DEBUG_LIB			0  // 0=desativado, 1=ativado
+#define GILDB_PRINT_DEBUG		0  // 1 = printa toda vida o debug
 
 
 //#define OFF_PACK_GILSON_DB	16  // status_id + check_ids + tamanho do pacote + crc (as 4 do tipo uint32_t)
@@ -146,6 +126,7 @@ enum e_erros_GILSONDB
 	erGILSONDB_57,				//
 	erGILSONDB_58,				//
 	erGILSONDB_59,				//
+	erGILSONDB_60,				// erro check_key_gilsondb
 };
 
 
@@ -214,6 +195,8 @@ int32_t gilsondb_del_fixed(const uint32_t end_db, const uint32_t cont_del);
 
 int32_t gilsondb_read_key(const uint32_t end_db, const uint32_t id, const uint8_t chave, uint8_t *data, uint8_t *valor);
 
+int32_t gilsondb_select(const uint32_t end_db, uint32_t *cont_ids, uint16_t *valids, const uint8_t chave, uint8_t *data, uint8_t *valor);
+int32_t gilsondb_multi_select(const uint32_t end_db, const uint8_t ibanco, uint32_t *cont_ids, uint16_t *valids, const uint8_t chave, uint8_t *data, uint8_t *valor);
 
 
 #endif /* SRC_GILSON_DB_GILSON_DB_H_ */
